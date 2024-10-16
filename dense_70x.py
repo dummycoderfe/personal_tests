@@ -1,9 +1,20 @@
 import torch
 from torch import nn
+from torch.profiler import profile, record_function, ProfilerActivity
+import time
+import sys
+
 
 
 def benchmark_torch_function(iters: int, function, *args) -> float:
     function(*args)
+    # torch.cuda.synchronize()
+    # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+    #     function(*args)
+    #     torch.cuda.synchronize()
+    #     function(*args)
+    #     torch.cuda.synchronize()
+    # prof.export_chrome_trace("trace.json")
     torch.cuda.synchronize()
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
@@ -14,7 +25,39 @@ def benchmark_torch_function(iters: int, function, *args) -> float:
     torch.cuda.synchronize()
     return (start_event.elapsed_time(end_event) * 1.0e-3) / iters
 
+def ln_wrapper(input, normalized_shape, weight, bias=None, eps=1e-05, line_number=""):
+    print(f"ln line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    return torch.nn.functional.layer_norm(
+            input=input,
+            normalized_shape=normalized_shape,
+            weight=weight,
+            bias=bias,
+            eps=eps,
+        )
+def mul_wrap(input, other, line_number=""):
+    print(f"mul line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    return torch.mul(input=input, other=other)
 
+def reshape_wrap(input, shape, line_number=""):
+    print(f"reshape line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    return torch.reshape(input=input, shape = shape)
+
+def add_wrapper(input, other, line_number=""):
+    print(f"add line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    return torch.add(
+            input=input,
+            other=other
+        )
+def linear_wrapper(input, weight, bias=None, line_number=""):
+    print(f"linear line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    
+    return torch.nn.functional.linear(input=input, weight=weight, bias=bias)
+    
+
+def contiguous_wrapper(in0, line_number=""):
+    print(f"contigous line {line_number} shape: {in0.shape}  strides: {in0.stride()}")
+    return in0.contiguous()
+    
 class ExportedModule(nn.Module):
     def __init__(self):
         super().__init__()
@@ -612,7 +655,7 @@ class ExportedModule(nn.Module):
         getitem_3225 = None
         _holder__attr_0 = self._attr_0
         _holder__attr_1 = self._attr_1
-        linear = torch.nn.functional.linear(
+        linear = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3227, weight=_holder__attr_0, bias=_holder__attr_1
         )
         _holder__attr_0 = _holder__attr_1 = None
@@ -627,22 +670,22 @@ class ExportedModule(nn.Module):
         getitem_4145 = linear[:, 4096:4608]
         linear = None
         _holder__attr_2 = self._attr_2
-        add_42 = torch.add(input=getitem_3224, other=_holder__attr_2)
+        add_42 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_3224, other=_holder__attr_2)
         getitem_3224 = _holder__attr_2 = None
         _holder__attr_3 = self._attr_3
-        add_43 = torch.add(input=getitem_3223, other=_holder__attr_3)
+        add_43 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_3223, other=_holder__attr_3)
         getitem_3223 = _holder__attr_3 = None
         _holder__attr_4 = self._attr_4
-        add_44 = torch.add(input=getitem_3222, other=_holder__attr_4)
+        add_44 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_3222, other=_holder__attr_4)
         getitem_3222 = _holder__attr_4 = None
         _holder__attr_5 = self._attr_5
-        add_45 = torch.add(input=getitem_3221, other=_holder__attr_5)
+        add_45 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_3221, other=_holder__attr_5)
         getitem_3221 = _holder__attr_5 = None
         _holder__attr_6 = self._attr_6
-        add_46 = torch.add(input=getitem_3220, other=_holder__attr_6)
+        add_46 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_3220, other=_holder__attr_6)
         getitem_3220 = _holder__attr_6 = None
         _holder__attr_7 = self._attr_7
-        add_47 = torch.add(input=getitem_3219, other=_holder__attr_7)
+        add_47 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_3219, other=_holder__attr_7)
         getitem_3219 = _holder__attr_7 = None
         clamp_37 = torch.clamp(input=getitem_3717, min=-1000.1, max=1000.1)
         getitem_3717 = None
@@ -699,7 +742,7 @@ class ExportedModule(nn.Module):
         sigmoid_58 = torch.sigmoid(input=getitem_4145)
         _holder__attr_8 = self._attr_8
         _holder__attr_9 = self._attr_9
-        layer_norm_135 = torch.nn.functional.layer_norm(
+        layer_norm_135 = ln_wrapper(
             input=add_42,
             normalized_shape=(64,),
             weight=_holder__attr_8,
@@ -709,7 +752,7 @@ class ExportedModule(nn.Module):
         add_42 = _holder__attr_8 = _holder__attr_9 = None
         _holder__attr_10 = self._attr_10
         _holder__attr_11 = self._attr_11
-        layer_norm_136 = torch.nn.functional.layer_norm(
+        layer_norm_136 = ln_wrapper(
             input=add_43,
             normalized_shape=(64,),
             weight=_holder__attr_10,
@@ -719,7 +762,7 @@ class ExportedModule(nn.Module):
         add_43 = _holder__attr_10 = _holder__attr_11 = None
         _holder__attr_12 = self._attr_12
         _holder__attr_13 = self._attr_13
-        layer_norm_137 = torch.nn.functional.layer_norm(
+        layer_norm_137 = ln_wrapper(
             input=add_44,
             normalized_shape=(64,),
             weight=_holder__attr_12,
@@ -729,7 +772,7 @@ class ExportedModule(nn.Module):
         add_44 = _holder__attr_12 = _holder__attr_13 = None
         _holder__attr_14 = self._attr_14
         _holder__attr_15 = self._attr_15
-        layer_norm_138 = torch.nn.functional.layer_norm(
+        layer_norm_138 = ln_wrapper(
             input=add_45,
             normalized_shape=(64,),
             weight=_holder__attr_14,
@@ -739,7 +782,7 @@ class ExportedModule(nn.Module):
         add_45 = _holder__attr_14 = _holder__attr_15 = None
         _holder__attr_16 = self._attr_16
         _holder__attr_17 = self._attr_17
-        layer_norm_139 = torch.nn.functional.layer_norm(
+        layer_norm_139 = ln_wrapper(
             input=add_46,
             normalized_shape=(64,),
             weight=_holder__attr_16,
@@ -749,7 +792,7 @@ class ExportedModule(nn.Module):
         add_46 = _holder__attr_16 = _holder__attr_17 = None
         _holder__attr_18 = self._attr_18
         _holder__attr_19 = self._attr_19
-        layer_norm_140 = torch.nn.functional.layer_norm(
+        layer_norm_140 = ln_wrapper(
             input=add_47,
             normalized_shape=(64,),
             weight=_holder__attr_18,
@@ -864,218 +907,218 @@ class ExportedModule(nn.Module):
         mul_66 = torch.mul(input=getitem_4145, other=sigmoid_58)
         getitem_4145 = sigmoid_58 = None
         _holder__attr_20 = self._attr_20
-        linear_208 = torch.nn.functional.linear(
+        linear_208 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_135, weight=_holder__attr_20, bias=None
         )
         _holder__attr_20 = None
         size_109 = layer_norm_135.size()
         _holder__attr_21 = self._attr_21
-        linear_209 = torch.nn.functional.linear(
+        linear_209 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_136, weight=_holder__attr_21, bias=None
         )
         _holder__attr_21 = None
         size_110 = layer_norm_136.size()
         _holder__attr_22 = self._attr_22
-        linear_210 = torch.nn.functional.linear(
+        linear_210 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_137, weight=_holder__attr_22, bias=None
         )
         _holder__attr_22 = None
         size_111 = layer_norm_137.size()
         _holder__attr_23 = self._attr_23
-        linear_211 = torch.nn.functional.linear(
+        linear_211 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_138, weight=_holder__attr_23, bias=None
         )
         _holder__attr_23 = None
         size_112 = layer_norm_138.size()
         _holder__attr_24 = self._attr_24
-        linear_212 = torch.nn.functional.linear(
+        linear_212 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_139, weight=_holder__attr_24, bias=None
         )
         _holder__attr_24 = None
         size_113 = layer_norm_139.size()
         _holder__attr_25 = self._attr_25
-        linear_213 = torch.nn.functional.linear(
+        linear_213 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_140, weight=_holder__attr_25, bias=None
         )
         _holder__attr_25 = None
         size_114 = layer_norm_140.size()
         _holder__attr_26 = self._attr_26
         _holder__attr_27 = self._attr_27
-        linear_176 = torch.nn.functional.linear(
+        linear_176 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3710, weight=_holder__attr_26, bias=_holder__attr_27
         )
         getitem_3710 = _holder__attr_26 = _holder__attr_27 = None
         _holder__attr_28 = self._attr_28
         _holder__attr_29 = self._attr_29
-        linear_177 = torch.nn.functional.linear(
+        linear_177 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3711, weight=_holder__attr_28, bias=_holder__attr_29
         )
         getitem_3711 = _holder__attr_28 = _holder__attr_29 = None
         _holder__attr_30 = self._attr_30
         _holder__attr_31 = self._attr_31
-        linear_178 = torch.nn.functional.linear(
+        linear_178 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3712, weight=_holder__attr_30, bias=_holder__attr_31
         )
         getitem_3712 = _holder__attr_30 = _holder__attr_31 = None
         _holder__attr_32 = self._attr_32
         _holder__attr_33 = self._attr_33
-        linear_179 = torch.nn.functional.linear(
+        linear_179 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3713, weight=_holder__attr_32, bias=_holder__attr_33
         )
         getitem_3713 = _holder__attr_32 = _holder__attr_33 = None
         _holder__attr_34 = self._attr_34
         _holder__attr_35 = self._attr_35
-        linear_180 = torch.nn.functional.linear(
+        linear_180 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3714, weight=_holder__attr_34, bias=_holder__attr_35
         )
         getitem_3714 = _holder__attr_34 = _holder__attr_35 = None
         _holder__attr_36 = self._attr_36
         _holder__attr_37 = self._attr_37
-        linear_181 = torch.nn.functional.linear(
+        linear_181 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3715, weight=_holder__attr_36, bias=_holder__attr_37
         )
         getitem_3715 = _holder__attr_36 = _holder__attr_37 = None
         _holder__attr_38 = self._attr_38
         _holder__attr_39 = self._attr_39
-        linear_182 = torch.nn.functional.linear(
+        linear_182 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=getitem_3716, weight=_holder__attr_38, bias=_holder__attr_39
         )
         getitem_3716 = _holder__attr_38 = _holder__attr_39 = None
         _holder__attr_40 = self._attr_40
         _holder__attr_41 = self._attr_41
-        linear_183 = torch.nn.functional.linear(
+        linear_183 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_37, weight=_holder__attr_40, bias=_holder__attr_41
         )
         nan_to_num_37 = _holder__attr_40 = _holder__attr_41 = None
         _holder__attr_42 = self._attr_42
         _holder__attr_43 = self._attr_43
-        linear_184 = torch.nn.functional.linear(
+        linear_184 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_38, weight=_holder__attr_42, bias=_holder__attr_43
         )
         nan_to_num_38 = _holder__attr_42 = _holder__attr_43 = None
         _holder__attr_44 = self._attr_44
         _holder__attr_45 = self._attr_45
-        linear_185 = torch.nn.functional.linear(
+        linear_185 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_39, weight=_holder__attr_44, bias=_holder__attr_45
         )
         nan_to_num_39 = _holder__attr_44 = _holder__attr_45 = None
         _holder__attr_46 = self._attr_46
         _holder__attr_47 = self._attr_47
-        linear_186 = torch.nn.functional.linear(
+        linear_186 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_40, weight=_holder__attr_46, bias=_holder__attr_47
         )
         nan_to_num_40 = _holder__attr_46 = _holder__attr_47 = None
         _holder__attr_48 = self._attr_48
         _holder__attr_49 = self._attr_49
-        linear_187 = torch.nn.functional.linear(
+        linear_187 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_41, weight=_holder__attr_48, bias=_holder__attr_49
         )
         nan_to_num_41 = _holder__attr_48 = _holder__attr_49 = None
         _holder__attr_50 = self._attr_50
         _holder__attr_51 = self._attr_51
-        linear_188 = torch.nn.functional.linear(
+        linear_188 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_42, weight=_holder__attr_50, bias=_holder__attr_51
         )
         nan_to_num_42 = _holder__attr_50 = _holder__attr_51 = None
         _holder__attr_52 = self._attr_52
         _holder__attr_53 = self._attr_53
-        linear_189 = torch.nn.functional.linear(
+        linear_189 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_43, weight=_holder__attr_52, bias=_holder__attr_53
         )
         nan_to_num_43 = _holder__attr_52 = _holder__attr_53 = None
         _holder__attr_54 = self._attr_54
         _holder__attr_55 = self._attr_55
-        linear_190 = torch.nn.functional.linear(
+        linear_190 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_44, weight=_holder__attr_54, bias=_holder__attr_55
         )
         nan_to_num_44 = _holder__attr_54 = _holder__attr_55 = None
         _holder__attr_56 = self._attr_56
         _holder__attr_57 = self._attr_57
-        linear_191 = torch.nn.functional.linear(
+        linear_191 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_45, weight=_holder__attr_56, bias=_holder__attr_57
         )
         nan_to_num_45 = _holder__attr_56 = _holder__attr_57 = None
         _holder__attr_58 = self._attr_58
         _holder__attr_59 = self._attr_59
-        linear_192 = torch.nn.functional.linear(
+        linear_192 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_46, weight=_holder__attr_58, bias=_holder__attr_59
         )
         nan_to_num_46 = _holder__attr_58 = _holder__attr_59 = None
         _holder__attr_60 = self._attr_60
         _holder__attr_61 = self._attr_61
-        linear_193 = torch.nn.functional.linear(
+        linear_193 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_47, weight=_holder__attr_60, bias=_holder__attr_61
         )
         nan_to_num_47 = _holder__attr_60 = _holder__attr_61 = None
         _holder__attr_62 = self._attr_62
         _holder__attr_63 = self._attr_63
-        linear_194 = torch.nn.functional.linear(
+        linear_194 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_48, weight=_holder__attr_62, bias=_holder__attr_63
         )
         nan_to_num_48 = _holder__attr_62 = _holder__attr_63 = None
         _holder__attr_64 = self._attr_64
         _holder__attr_65 = self._attr_65
-        linear_195 = torch.nn.functional.linear(
+        linear_195 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_49, weight=_holder__attr_64, bias=_holder__attr_65
         )
         nan_to_num_49 = _holder__attr_64 = _holder__attr_65 = None
         _holder__attr_66 = self._attr_66
         _holder__attr_67 = self._attr_67
-        linear_196 = torch.nn.functional.linear(
+        linear_196 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_50, weight=_holder__attr_66, bias=_holder__attr_67
         )
         nan_to_num_50 = _holder__attr_66 = _holder__attr_67 = None
         _holder__attr_68 = self._attr_68
         _holder__attr_69 = self._attr_69
-        linear_197 = torch.nn.functional.linear(
+        linear_197 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_51, weight=_holder__attr_68, bias=_holder__attr_69
         )
         nan_to_num_51 = _holder__attr_68 = _holder__attr_69 = None
         _holder__attr_70 = self._attr_70
         _holder__attr_71 = self._attr_71
-        linear_198 = torch.nn.functional.linear(
+        linear_198 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_52, weight=_holder__attr_70, bias=_holder__attr_71
         )
         nan_to_num_52 = _holder__attr_70 = _holder__attr_71 = None
         _holder__attr_72 = self._attr_72
         _holder__attr_73 = self._attr_73
-        linear_199 = torch.nn.functional.linear(
+        linear_199 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_53, weight=_holder__attr_72, bias=_holder__attr_73
         )
         nan_to_num_53 = _holder__attr_72 = _holder__attr_73 = None
         _holder__attr_74 = self._attr_74
         _holder__attr_75 = self._attr_75
-        linear_200 = torch.nn.functional.linear(
+        linear_200 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_54, weight=_holder__attr_74, bias=_holder__attr_75
         )
         nan_to_num_54 = _holder__attr_74 = _holder__attr_75 = None
         _holder__attr_76 = self._attr_76
         _holder__attr_77 = self._attr_77
-        linear_201 = torch.nn.functional.linear(
+        linear_201 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_55, weight=_holder__attr_76, bias=_holder__attr_77
         )
         nan_to_num_55 = _holder__attr_76 = _holder__attr_77 = None
         _holder__attr_78 = self._attr_78
         _holder__attr_79 = self._attr_79
-        linear_202 = torch.nn.functional.linear(
+        linear_202 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_56, weight=_holder__attr_78, bias=_holder__attr_79
         )
         nan_to_num_56 = _holder__attr_78 = _holder__attr_79 = None
         _holder__attr_80 = self._attr_80
         _holder__attr_81 = self._attr_81
-        linear_203 = torch.nn.functional.linear(
+        linear_203 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_57, weight=_holder__attr_80, bias=_holder__attr_81
         )
         nan_to_num_57 = _holder__attr_80 = _holder__attr_81 = None
         _holder__attr_82 = self._attr_82
         _holder__attr_83 = self._attr_83
-        linear_204 = torch.nn.functional.linear(
+        linear_204 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=nan_to_num_58, weight=_holder__attr_82, bias=_holder__attr_83
         )
         nan_to_num_58 = _holder__attr_82 = _holder__attr_83 = None
         _holder__attr_84 = self._attr_84
         _holder__attr_85 = self._attr_85
-        layer_norm_141 = torch.nn.functional.layer_norm(
+        layer_norm_141 = ln_wrapper(
             input=repeat,
             normalized_shape=(64,),
             weight=_holder__attr_84,
@@ -1085,7 +1128,7 @@ class ExportedModule(nn.Module):
         _holder__attr_84 = _holder__attr_85 = None
         _holder__attr_86 = self._attr_86
         _holder__attr_87 = self._attr_87
-        layer_norm_142 = torch.nn.functional.layer_norm(
+        layer_norm_142 = ln_wrapper(
             input=repeat_1,
             normalized_shape=(64,),
             weight=_holder__attr_86,
@@ -1095,7 +1138,7 @@ class ExportedModule(nn.Module):
         _holder__attr_86 = _holder__attr_87 = None
         _holder__attr_88 = self._attr_88
         _holder__attr_89 = self._attr_89
-        layer_norm_143 = torch.nn.functional.layer_norm(
+        layer_norm_143 = ln_wrapper(
             input=repeat_2,
             normalized_shape=(64,),
             weight=_holder__attr_88,
@@ -1105,7 +1148,7 @@ class ExportedModule(nn.Module):
         _holder__attr_88 = _holder__attr_89 = None
         _holder__attr_90 = self._attr_90
         _holder__attr_91 = self._attr_91
-        layer_norm_144 = torch.nn.functional.layer_norm(
+        layer_norm_144 = ln_wrapper(
             input=repeat_3,
             normalized_shape=(64,),
             weight=_holder__attr_90,
@@ -1115,7 +1158,7 @@ class ExportedModule(nn.Module):
         _holder__attr_90 = _holder__attr_91 = None
         _holder__attr_92 = self._attr_92
         _holder__attr_93 = self._attr_93
-        layer_norm_145 = torch.nn.functional.layer_norm(
+        layer_norm_145 = ln_wrapper(
             input=repeat_4,
             normalized_shape=(64,),
             weight=_holder__attr_92,
@@ -1125,7 +1168,7 @@ class ExportedModule(nn.Module):
         _holder__attr_92 = _holder__attr_93 = None
         _holder__attr_94 = self._attr_94
         _holder__attr_95 = self._attr_95
-        layer_norm_146 = torch.nn.functional.layer_norm(
+        layer_norm_146 = ln_wrapper(
             input=repeat_5,
             normalized_shape=(64,),
             weight=_holder__attr_94,
@@ -1135,7 +1178,7 @@ class ExportedModule(nn.Module):
         _holder__attr_94 = _holder__attr_95 = None
         _holder__attr_96 = self._attr_96
         _holder__attr_97 = self._attr_97
-        layer_norm_104 = torch.nn.functional.layer_norm(
+        layer_norm_104 = ln_wrapper(
             input=getitem_4137,
             normalized_shape=getitem_3709,
             weight=_holder__attr_96,
@@ -1145,49 +1188,49 @@ class ExportedModule(nn.Module):
         getitem_3709 = _holder__attr_96 = _holder__attr_97 = None
         _holder__attr_98 = self._attr_98
         _holder__attr_99 = self._attr_99
-        linear_166 = torch.nn.functional.linear(
+        linear_166 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_59, weight=_holder__attr_98, bias=_holder__attr_99
         )
         mul_59 = _holder__attr_98 = _holder__attr_99 = None
         _holder__attr_100 = self._attr_100
         _holder__attr_101 = self._attr_101
-        linear_167 = torch.nn.functional.linear(
+        linear_167 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_60, weight=_holder__attr_100, bias=_holder__attr_101
         )
         mul_60 = _holder__attr_100 = _holder__attr_101 = None
         _holder__attr_102 = self._attr_102
         _holder__attr_103 = self._attr_103
-        linear_168 = torch.nn.functional.linear(
+        linear_168 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_61, weight=_holder__attr_102, bias=_holder__attr_103
         )
         mul_61 = _holder__attr_102 = _holder__attr_103 = None
         _holder__attr_104 = self._attr_104
         _holder__attr_105 = self._attr_105
-        linear_169 = torch.nn.functional.linear(
+        linear_169 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_62, weight=_holder__attr_104, bias=_holder__attr_105
         )
         mul_62 = _holder__attr_104 = _holder__attr_105 = None
         _holder__attr_106 = self._attr_106
         _holder__attr_107 = self._attr_107
-        linear_170 = torch.nn.functional.linear(
+        linear_170 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_63, weight=_holder__attr_106, bias=_holder__attr_107
         )
         mul_63 = _holder__attr_106 = _holder__attr_107 = None
         _holder__attr_108 = self._attr_108
         _holder__attr_109 = self._attr_109
-        linear_171 = torch.nn.functional.linear(
+        linear_171 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_64, weight=_holder__attr_108, bias=_holder__attr_109
         )
         mul_64 = _holder__attr_108 = _holder__attr_109 = None
         _holder__attr_110 = self._attr_110
         _holder__attr_111 = self._attr_111
-        linear_172 = torch.nn.functional.linear(
+        linear_172 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_65, weight=_holder__attr_110, bias=_holder__attr_111
         )
         mul_65 = _holder__attr_110 = _holder__attr_111 = None
         _holder__attr_112 = self._attr_112
         _holder__attr_113 = self._attr_113
-        linear_173 = torch.nn.functional.linear(
+        linear_173 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_66, weight=_holder__attr_112, bias=_holder__attr_113
         )
         mul_66 = _holder__attr_112 = _holder__attr_113 = None
@@ -1234,7 +1277,7 @@ class ExportedModule(nn.Module):
         size_102 = linear_204.size()
         _holder__attr_114 = self._attr_114
         _holder__attr_115 = self._attr_115
-        linear_214 = torch.nn.functional.linear(
+        linear_214 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_141, weight=_holder__attr_114, bias=_holder__attr_115
         )
         _holder__attr_114 = _holder__attr_115 = None
@@ -1242,7 +1285,7 @@ class ExportedModule(nn.Module):
         layer_norm_141 = None
         _holder__attr_116 = self._attr_116
         _holder__attr_117 = self._attr_117
-        linear_215 = torch.nn.functional.linear(
+        linear_215 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_142, weight=_holder__attr_116, bias=_holder__attr_117
         )
         _holder__attr_116 = _holder__attr_117 = None
@@ -1250,7 +1293,7 @@ class ExportedModule(nn.Module):
         layer_norm_142 = None
         _holder__attr_118 = self._attr_118
         _holder__attr_119 = self._attr_119
-        linear_216 = torch.nn.functional.linear(
+        linear_216 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_143, weight=_holder__attr_118, bias=_holder__attr_119
         )
         _holder__attr_118 = _holder__attr_119 = None
@@ -1258,7 +1301,7 @@ class ExportedModule(nn.Module):
         layer_norm_143 = None
         _holder__attr_120 = self._attr_120
         _holder__attr_121 = self._attr_121
-        linear_217 = torch.nn.functional.linear(
+        linear_217 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_144, weight=_holder__attr_120, bias=_holder__attr_121
         )
         _holder__attr_120 = _holder__attr_121 = None
@@ -1266,7 +1309,7 @@ class ExportedModule(nn.Module):
         layer_norm_144 = None
         _holder__attr_122 = self._attr_122
         _holder__attr_123 = self._attr_123
-        linear_218 = torch.nn.functional.linear(
+        linear_218 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_145, weight=_holder__attr_122, bias=_holder__attr_123
         )
         _holder__attr_122 = _holder__attr_123 = None
@@ -1274,7 +1317,7 @@ class ExportedModule(nn.Module):
         layer_norm_145 = None
         _holder__attr_124 = self._attr_124
         _holder__attr_125 = self._attr_125
-        linear_219 = torch.nn.functional.linear(
+        linear_219 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_146, weight=_holder__attr_124, bias=_holder__attr_125
         )
         _holder__attr_124 = _holder__attr_125 = None
@@ -1378,7 +1421,7 @@ class ExportedModule(nn.Module):
         getitem_4137 = sigmoid_59 = None
         _holder__attr_126 = self._attr_126
         _holder__attr_127 = self._attr_127
-        layer_norm_106 = torch.nn.functional.layer_norm(
+        layer_norm_106 = ln_wrapper(
             input=linear_176,
             normalized_shape=getitem_3740,
             weight=_holder__attr_126,
@@ -1388,7 +1431,7 @@ class ExportedModule(nn.Module):
         linear_176 = getitem_3740 = _holder__attr_126 = _holder__attr_127 = None
         _holder__attr_128 = self._attr_128
         _holder__attr_129 = self._attr_129
-        layer_norm_107 = torch.nn.functional.layer_norm(
+        layer_norm_107 = ln_wrapper(
             input=linear_177,
             normalized_shape=getitem_3741,
             weight=_holder__attr_128,
@@ -1398,7 +1441,7 @@ class ExportedModule(nn.Module):
         linear_177 = getitem_3741 = _holder__attr_128 = _holder__attr_129 = None
         _holder__attr_130 = self._attr_130
         _holder__attr_131 = self._attr_131
-        layer_norm_108 = torch.nn.functional.layer_norm(
+        layer_norm_108 = ln_wrapper(
             input=linear_178,
             normalized_shape=getitem_3742,
             weight=_holder__attr_130,
@@ -1408,7 +1451,7 @@ class ExportedModule(nn.Module):
         linear_178 = getitem_3742 = _holder__attr_130 = _holder__attr_131 = None
         _holder__attr_132 = self._attr_132
         _holder__attr_133 = self._attr_133
-        layer_norm_109 = torch.nn.functional.layer_norm(
+        layer_norm_109 = ln_wrapper(
             input=linear_179,
             normalized_shape=getitem_3743,
             weight=_holder__attr_132,
@@ -1418,7 +1461,7 @@ class ExportedModule(nn.Module):
         linear_179 = getitem_3743 = _holder__attr_132 = _holder__attr_133 = None
         _holder__attr_134 = self._attr_134
         _holder__attr_135 = self._attr_135
-        layer_norm_110 = torch.nn.functional.layer_norm(
+        layer_norm_110 = ln_wrapper(
             input=linear_180,
             normalized_shape=getitem_3744,
             weight=_holder__attr_134,
@@ -1428,7 +1471,7 @@ class ExportedModule(nn.Module):
         linear_180 = getitem_3744 = _holder__attr_134 = _holder__attr_135 = None
         _holder__attr_136 = self._attr_136
         _holder__attr_137 = self._attr_137
-        layer_norm_111 = torch.nn.functional.layer_norm(
+        layer_norm_111 = ln_wrapper(
             input=linear_181,
             normalized_shape=getitem_3745,
             weight=_holder__attr_136,
@@ -1438,7 +1481,7 @@ class ExportedModule(nn.Module):
         linear_181 = getitem_3745 = _holder__attr_136 = _holder__attr_137 = None
         _holder__attr_138 = self._attr_138
         _holder__attr_139 = self._attr_139
-        layer_norm_112 = torch.nn.functional.layer_norm(
+        layer_norm_112 = ln_wrapper(
             input=linear_182,
             normalized_shape=getitem_3746,
             weight=_holder__attr_138,
@@ -1448,7 +1491,7 @@ class ExportedModule(nn.Module):
         linear_182 = getitem_3746 = _holder__attr_138 = _holder__attr_139 = None
         _holder__attr_140 = self._attr_140
         _holder__attr_141 = self._attr_141
-        layer_norm_113 = torch.nn.functional.layer_norm(
+        layer_norm_113 = ln_wrapper(
             input=linear_183,
             normalized_shape=getitem_3747,
             weight=_holder__attr_140,
@@ -1458,7 +1501,7 @@ class ExportedModule(nn.Module):
         linear_183 = getitem_3747 = _holder__attr_140 = _holder__attr_141 = None
         _holder__attr_142 = self._attr_142
         _holder__attr_143 = self._attr_143
-        layer_norm_114 = torch.nn.functional.layer_norm(
+        layer_norm_114 = ln_wrapper(
             input=linear_184,
             normalized_shape=getitem_3748,
             weight=_holder__attr_142,
@@ -1468,7 +1511,7 @@ class ExportedModule(nn.Module):
         linear_184 = getitem_3748 = _holder__attr_142 = _holder__attr_143 = None
         _holder__attr_144 = self._attr_144
         _holder__attr_145 = self._attr_145
-        layer_norm_115 = torch.nn.functional.layer_norm(
+        layer_norm_115 = ln_wrapper(
             input=linear_185,
             normalized_shape=getitem_3749,
             weight=_holder__attr_144,
@@ -1478,7 +1521,7 @@ class ExportedModule(nn.Module):
         linear_185 = getitem_3749 = _holder__attr_144 = _holder__attr_145 = None
         _holder__attr_146 = self._attr_146
         _holder__attr_147 = self._attr_147
-        layer_norm_116 = torch.nn.functional.layer_norm(
+        layer_norm_116 = ln_wrapper(
             input=linear_186,
             normalized_shape=getitem_3750,
             weight=_holder__attr_146,
@@ -1488,7 +1531,7 @@ class ExportedModule(nn.Module):
         linear_186 = getitem_3750 = _holder__attr_146 = _holder__attr_147 = None
         _holder__attr_148 = self._attr_148
         _holder__attr_149 = self._attr_149
-        layer_norm_117 = torch.nn.functional.layer_norm(
+        layer_norm_117 = ln_wrapper(
             input=linear_187,
             normalized_shape=getitem_3751,
             weight=_holder__attr_148,
@@ -1498,7 +1541,7 @@ class ExportedModule(nn.Module):
         linear_187 = getitem_3751 = _holder__attr_148 = _holder__attr_149 = None
         _holder__attr_150 = self._attr_150
         _holder__attr_151 = self._attr_151
-        layer_norm_118 = torch.nn.functional.layer_norm(
+        layer_norm_118 = ln_wrapper(
             input=linear_188,
             normalized_shape=getitem_3752,
             weight=_holder__attr_150,
@@ -1508,7 +1551,7 @@ class ExportedModule(nn.Module):
         linear_188 = getitem_3752 = _holder__attr_150 = _holder__attr_151 = None
         _holder__attr_152 = self._attr_152
         _holder__attr_153 = self._attr_153
-        layer_norm_119 = torch.nn.functional.layer_norm(
+        layer_norm_119 = ln_wrapper(
             input=linear_189,
             normalized_shape=getitem_3753,
             weight=_holder__attr_152,
@@ -1518,7 +1561,7 @@ class ExportedModule(nn.Module):
         linear_189 = getitem_3753 = _holder__attr_152 = _holder__attr_153 = None
         _holder__attr_154 = self._attr_154
         _holder__attr_155 = self._attr_155
-        layer_norm_120 = torch.nn.functional.layer_norm(
+        layer_norm_120 = ln_wrapper(
             input=linear_190,
             normalized_shape=getitem_3754,
             weight=_holder__attr_154,
@@ -1528,7 +1571,7 @@ class ExportedModule(nn.Module):
         linear_190 = getitem_3754 = _holder__attr_154 = _holder__attr_155 = None
         _holder__attr_156 = self._attr_156
         _holder__attr_157 = self._attr_157
-        layer_norm_121 = torch.nn.functional.layer_norm(
+        layer_norm_121 = ln_wrapper(
             input=linear_191,
             normalized_shape=getitem_3755,
             weight=_holder__attr_156,
@@ -1538,7 +1581,7 @@ class ExportedModule(nn.Module):
         linear_191 = getitem_3755 = _holder__attr_156 = _holder__attr_157 = None
         _holder__attr_158 = self._attr_158
         _holder__attr_159 = self._attr_159
-        layer_norm_122 = torch.nn.functional.layer_norm(
+        layer_norm_122 = ln_wrapper(
             input=linear_192,
             normalized_shape=getitem_3756,
             weight=_holder__attr_158,
@@ -1548,7 +1591,7 @@ class ExportedModule(nn.Module):
         linear_192 = getitem_3756 = _holder__attr_158 = _holder__attr_159 = None
         _holder__attr_160 = self._attr_160
         _holder__attr_161 = self._attr_161
-        layer_norm_123 = torch.nn.functional.layer_norm(
+        layer_norm_123 = ln_wrapper(
             input=linear_193,
             normalized_shape=getitem_3757,
             weight=_holder__attr_160,
@@ -1558,7 +1601,7 @@ class ExportedModule(nn.Module):
         linear_193 = getitem_3757 = _holder__attr_160 = _holder__attr_161 = None
         _holder__attr_162 = self._attr_162
         _holder__attr_163 = self._attr_163
-        layer_norm_124 = torch.nn.functional.layer_norm(
+        layer_norm_124 = ln_wrapper(
             input=linear_194,
             normalized_shape=getitem_3758,
             weight=_holder__attr_162,
@@ -1568,7 +1611,7 @@ class ExportedModule(nn.Module):
         linear_194 = getitem_3758 = _holder__attr_162 = _holder__attr_163 = None
         _holder__attr_164 = self._attr_164
         _holder__attr_165 = self._attr_165
-        layer_norm_125 = torch.nn.functional.layer_norm(
+        layer_norm_125 = ln_wrapper(
             input=linear_195,
             normalized_shape=getitem_3759,
             weight=_holder__attr_164,
@@ -1578,7 +1621,7 @@ class ExportedModule(nn.Module):
         linear_195 = getitem_3759 = _holder__attr_164 = _holder__attr_165 = None
         _holder__attr_166 = self._attr_166
         _holder__attr_167 = self._attr_167
-        layer_norm_126 = torch.nn.functional.layer_norm(
+        layer_norm_126 = ln_wrapper(
             input=linear_196,
             normalized_shape=getitem_3760,
             weight=_holder__attr_166,
@@ -1588,7 +1631,7 @@ class ExportedModule(nn.Module):
         linear_196 = getitem_3760 = _holder__attr_166 = _holder__attr_167 = None
         _holder__attr_168 = self._attr_168
         _holder__attr_169 = self._attr_169
-        layer_norm_127 = torch.nn.functional.layer_norm(
+        layer_norm_127 = ln_wrapper(
             input=linear_197,
             normalized_shape=getitem_3761,
             weight=_holder__attr_168,
@@ -1598,7 +1641,7 @@ class ExportedModule(nn.Module):
         linear_197 = getitem_3761 = _holder__attr_168 = _holder__attr_169 = None
         _holder__attr_170 = self._attr_170
         _holder__attr_171 = self._attr_171
-        layer_norm_128 = torch.nn.functional.layer_norm(
+        layer_norm_128 = ln_wrapper(
             input=linear_198,
             normalized_shape=getitem_3762,
             weight=_holder__attr_170,
@@ -1608,7 +1651,7 @@ class ExportedModule(nn.Module):
         linear_198 = getitem_3762 = _holder__attr_170 = _holder__attr_171 = None
         _holder__attr_172 = self._attr_172
         _holder__attr_173 = self._attr_173
-        layer_norm_129 = torch.nn.functional.layer_norm(
+        layer_norm_129 = ln_wrapper(
             input=linear_199,
             normalized_shape=getitem_3763,
             weight=_holder__attr_172,
@@ -1618,7 +1661,7 @@ class ExportedModule(nn.Module):
         linear_199 = getitem_3763 = _holder__attr_172 = _holder__attr_173 = None
         _holder__attr_174 = self._attr_174
         _holder__attr_175 = self._attr_175
-        layer_norm_130 = torch.nn.functional.layer_norm(
+        layer_norm_130 = ln_wrapper(
             input=linear_200,
             normalized_shape=getitem_3764,
             weight=_holder__attr_174,
@@ -1628,7 +1671,7 @@ class ExportedModule(nn.Module):
         linear_200 = getitem_3764 = _holder__attr_174 = _holder__attr_175 = None
         _holder__attr_176 = self._attr_176
         _holder__attr_177 = self._attr_177
-        layer_norm_131 = torch.nn.functional.layer_norm(
+        layer_norm_131 = ln_wrapper(
             input=linear_201,
             normalized_shape=getitem_3765,
             weight=_holder__attr_176,
@@ -1638,7 +1681,7 @@ class ExportedModule(nn.Module):
         linear_201 = getitem_3765 = _holder__attr_176 = _holder__attr_177 = None
         _holder__attr_178 = self._attr_178
         _holder__attr_179 = self._attr_179
-        layer_norm_132 = torch.nn.functional.layer_norm(
+        layer_norm_132 = ln_wrapper(
             input=linear_202,
             normalized_shape=getitem_3766,
             weight=_holder__attr_178,
@@ -1648,7 +1691,7 @@ class ExportedModule(nn.Module):
         linear_202 = getitem_3766 = _holder__attr_178 = _holder__attr_179 = None
         _holder__attr_180 = self._attr_180
         _holder__attr_181 = self._attr_181
-        layer_norm_133 = torch.nn.functional.layer_norm(
+        layer_norm_133 = ln_wrapper(
             input=linear_203,
             normalized_shape=getitem_3767,
             weight=_holder__attr_180,
@@ -1658,7 +1701,7 @@ class ExportedModule(nn.Module):
         linear_203 = getitem_3767 = _holder__attr_180 = _holder__attr_181 = None
         _holder__attr_182 = self._attr_182
         _holder__attr_183 = self._attr_183
-        layer_norm_134 = torch.nn.functional.layer_norm(
+        layer_norm_134 = ln_wrapper(
             input=linear_204,
             normalized_shape=getitem_3768,
             weight=_holder__attr_182,
@@ -1812,7 +1855,7 @@ class ExportedModule(nn.Module):
         linear_219 = getitem_4168 = None
         _holder__attr_184 = self._attr_184
         _holder__attr_185 = self._attr_185
-        linear_174 = torch.nn.functional.linear(
+        linear_174 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_67, weight=_holder__attr_184, bias=_holder__attr_185
         )
         mul_67 = _holder__attr_184 = _holder__attr_185 = None
@@ -1930,21 +1973,21 @@ class ExportedModule(nn.Module):
         scaled_dot_product_attention_5 = None
         _holder__attr_186 = self._attr_186
         _holder__attr_187 = self._attr_187
-        linear_175 = torch.nn.functional.linear(
+        linear_175 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_68, weight=_holder__attr_186, bias=_holder__attr_187
         )
         mul_68 = _holder__attr_186 = _holder__attr_187 = None
-        contiguous_15 = permute_68.contiguous()
+        contiguous_15 = contiguous_wrapper(permute_68,sys._getframe().f_lineno) #.contiguous()
         permute_68 = None
-        contiguous_16 = permute_69.contiguous()
+        contiguous_16 = contiguous_wrapper(permute_69,sys._getframe().f_lineno)#.contiguous()
         permute_69 = None
-        contiguous_17 = permute_70.contiguous()
+        contiguous_17 = contiguous_wrapper(permute_70,sys._getframe().f_lineno)#.contiguous()
         permute_70 = None
-        contiguous_18 = permute_71.contiguous()
+        contiguous_18 = contiguous_wrapper(permute_71,sys._getframe().f_lineno)#.contiguous()
         permute_71 = None
-        contiguous_19 = permute_72.contiguous()
+        contiguous_19 = contiguous_wrapper(permute_72,sys._getframe().f_lineno)#.contiguous()
         permute_72 = None
-        contiguous_20 = permute_73.contiguous()
+        contiguous_20 = contiguous_wrapper(permute_73,sys._getframe().f_lineno)#.contiguous()
         permute_73 = None
         size_73 = linear_175.size()
         size_161 = contiguous_15.size()
@@ -1997,21 +2040,21 @@ class ExportedModule(nn.Module):
         contiguous_20 = getitem_4174 = getitem_3797 = getitem_3798 = None
         getitem_3739 = size_73[1:]
         size_73 = None
-        add_48 = torch.add(input=reshape_361, other=repeat)
+        add_48 = add_wrapper(line_number=sys._getframe().f_lineno,input=reshape_361, other=repeat)
         reshape_361 = repeat = None
-        add_49 = torch.add(input=reshape_362, other=repeat_1)
+        add_49 = add_wrapper(line_number=sys._getframe().f_lineno,input=reshape_362, other=repeat_1)
         reshape_362 = repeat_1 = None
-        add_50 = torch.add(input=reshape_363, other=repeat_2)
+        add_50 = add_wrapper(line_number=sys._getframe().f_lineno,input=reshape_363, other=repeat_2)
         reshape_363 = repeat_2 = None
-        add_51 = torch.add(input=reshape_364, other=repeat_3)
+        add_51 = add_wrapper(line_number=sys._getframe().f_lineno,input=reshape_364, other=repeat_3)
         reshape_364 = repeat_3 = None
-        add_52 = torch.add(input=reshape_365, other=repeat_4)
+        add_52 = add_wrapper(line_number=sys._getframe().f_lineno,input=reshape_365, other=repeat_4)
         reshape_365 = repeat_4 = None
-        add_53 = torch.add(input=reshape_366, other=repeat_5)
+        add_53 = add_wrapper(line_number=sys._getframe().f_lineno,input=reshape_366, other=repeat_5)
         reshape_366 = repeat_5 = None
         _holder__attr_188 = self._attr_188
         _holder__attr_189 = self._attr_189
-        layer_norm_105 = torch.nn.functional.layer_norm(
+        layer_norm_105 = ln_wrapper(
             input=linear_175,
             normalized_shape=getitem_3739,
             weight=_holder__attr_188,
@@ -2021,7 +2064,7 @@ class ExportedModule(nn.Module):
         getitem_3739 = _holder__attr_188 = _holder__attr_189 = None
         _holder__attr_190 = self._attr_190
         _holder__attr_191 = self._attr_191
-        layer_norm_147 = torch.nn.functional.layer_norm(
+        layer_norm_147 = ln_wrapper(
             input=add_48,
             normalized_shape=(64,),
             weight=_holder__attr_190,
@@ -2031,7 +2074,7 @@ class ExportedModule(nn.Module):
         _holder__attr_190 = _holder__attr_191 = None
         _holder__attr_192 = self._attr_192
         _holder__attr_193 = self._attr_193
-        layer_norm_148 = torch.nn.functional.layer_norm(
+        layer_norm_148 = ln_wrapper(
             input=add_49,
             normalized_shape=(64,),
             weight=_holder__attr_192,
@@ -2041,7 +2084,7 @@ class ExportedModule(nn.Module):
         _holder__attr_192 = _holder__attr_193 = None
         _holder__attr_194 = self._attr_194
         _holder__attr_195 = self._attr_195
-        layer_norm_149 = torch.nn.functional.layer_norm(
+        layer_norm_149 = ln_wrapper(
             input=add_50,
             normalized_shape=(64,),
             weight=_holder__attr_194,
@@ -2051,7 +2094,7 @@ class ExportedModule(nn.Module):
         _holder__attr_194 = _holder__attr_195 = None
         _holder__attr_196 = self._attr_196
         _holder__attr_197 = self._attr_197
-        layer_norm_150 = torch.nn.functional.layer_norm(
+        layer_norm_150 = ln_wrapper(
             input=add_51,
             normalized_shape=(64,),
             weight=_holder__attr_196,
@@ -2061,7 +2104,7 @@ class ExportedModule(nn.Module):
         _holder__attr_196 = _holder__attr_197 = None
         _holder__attr_198 = self._attr_198
         _holder__attr_199 = self._attr_199
-        layer_norm_151 = torch.nn.functional.layer_norm(
+        layer_norm_151 = ln_wrapper(
             input=add_52,
             normalized_shape=(64,),
             weight=_holder__attr_198,
@@ -2071,7 +2114,7 @@ class ExportedModule(nn.Module):
         _holder__attr_198 = _holder__attr_199 = None
         _holder__attr_200 = self._attr_200
         _holder__attr_201 = self._attr_201
-        layer_norm_152 = torch.nn.functional.layer_norm(
+        layer_norm_152 = ln_wrapper(
             input=add_53,
             normalized_shape=(64,),
             weight=_holder__attr_200,
@@ -2083,37 +2126,37 @@ class ExportedModule(nn.Module):
         layer_norm_105 = None
         _holder__attr_202 = self._attr_202
         _holder__attr_203 = self._attr_203
-        linear_220 = torch.nn.functional.linear(
+        linear_220 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_147, weight=_holder__attr_202, bias=_holder__attr_203
         )
         layer_norm_147 = _holder__attr_202 = _holder__attr_203 = None
         _holder__attr_204 = self._attr_204
         _holder__attr_205 = self._attr_205
-        linear_221 = torch.nn.functional.linear(
+        linear_221 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_148, weight=_holder__attr_204, bias=_holder__attr_205
         )
         layer_norm_148 = _holder__attr_204 = _holder__attr_205 = None
         _holder__attr_206 = self._attr_206
         _holder__attr_207 = self._attr_207
-        linear_222 = torch.nn.functional.linear(
+        linear_222 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_149, weight=_holder__attr_206, bias=_holder__attr_207
         )
         layer_norm_149 = _holder__attr_206 = _holder__attr_207 = None
         _holder__attr_208 = self._attr_208
         _holder__attr_209 = self._attr_209
-        linear_223 = torch.nn.functional.linear(
+        linear_223 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_150, weight=_holder__attr_208, bias=_holder__attr_209
         )
         layer_norm_150 = _holder__attr_208 = _holder__attr_209 = None
         _holder__attr_210 = self._attr_210
         _holder__attr_211 = self._attr_211
-        linear_224 = torch.nn.functional.linear(
+        linear_224 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_151, weight=_holder__attr_210, bias=_holder__attr_211
         )
         layer_norm_151 = _holder__attr_210 = _holder__attr_211 = None
         _holder__attr_212 = self._attr_212
         _holder__attr_213 = self._attr_213
-        linear_225 = torch.nn.functional.linear(
+        linear_225 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_152, weight=_holder__attr_212, bias=_holder__attr_213
         )
         layer_norm_152 = _holder__attr_212 = _holder__attr_213 = None
@@ -2133,57 +2176,57 @@ class ExportedModule(nn.Module):
         linear_225 = None
         _holder__attr_214 = self._attr_214
         _holder__attr_215 = self._attr_215
-        linear_314 = torch.nn.functional.linear(
+        linear_314 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_69, weight=_holder__attr_214, bias=_holder__attr_215
         )
         mul_69 = _holder__attr_214 = _holder__attr_215 = None
         _holder__attr_216 = self._attr_216
         _holder__attr_217 = self._attr_217
-        linear_226 = torch.nn.functional.linear(
+        linear_226 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=gelu_6, weight=_holder__attr_216, bias=_holder__attr_217
         )
         gelu_6 = _holder__attr_216 = _holder__attr_217 = None
         _holder__attr_218 = self._attr_218
         _holder__attr_219 = self._attr_219
-        linear_227 = torch.nn.functional.linear(
+        linear_227 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=gelu_7, weight=_holder__attr_218, bias=_holder__attr_219
         )
         gelu_7 = _holder__attr_218 = _holder__attr_219 = None
         _holder__attr_220 = self._attr_220
         _holder__attr_221 = self._attr_221
-        linear_228 = torch.nn.functional.linear(
+        linear_228 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=gelu_8, weight=_holder__attr_220, bias=_holder__attr_221
         )
         gelu_8 = _holder__attr_220 = _holder__attr_221 = None
         _holder__attr_222 = self._attr_222
         _holder__attr_223 = self._attr_223
-        linear_229 = torch.nn.functional.linear(
+        linear_229 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=gelu_9, weight=_holder__attr_222, bias=_holder__attr_223
         )
         gelu_9 = _holder__attr_222 = _holder__attr_223 = None
         _holder__attr_224 = self._attr_224
         _holder__attr_225 = self._attr_225
-        linear_230 = torch.nn.functional.linear(
+        linear_230 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=gelu_10, weight=_holder__attr_224, bias=_holder__attr_225
         )
         gelu_10 = _holder__attr_224 = _holder__attr_225 = None
         _holder__attr_226 = self._attr_226
         _holder__attr_227 = self._attr_227
-        linear_231 = torch.nn.functional.linear(
+        linear_231 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=gelu_11, weight=_holder__attr_226, bias=_holder__attr_227
         )
         gelu_11 = _holder__attr_226 = _holder__attr_227 = None
-        add_54 = torch.add(input=add_48, other=linear_226)
+        add_54 = add_wrapper(line_number=sys._getframe().f_lineno,input=add_48, other=linear_226)
         add_48 = linear_226 = None
-        add_55 = torch.add(input=add_49, other=linear_227)
+        add_55 = add_wrapper(line_number=sys._getframe().f_lineno,input=add_49, other=linear_227)
         add_49 = linear_227 = None
-        add_56 = torch.add(input=add_50, other=linear_228)
+        add_56 = add_wrapper(line_number=sys._getframe().f_lineno,input=add_50, other=linear_228)
         add_50 = linear_228 = None
-        add_57 = torch.add(input=add_51, other=linear_229)
+        add_57 = add_wrapper(line_number=sys._getframe().f_lineno,input=add_51, other=linear_229)
         add_51 = linear_229 = None
-        add_58 = torch.add(input=add_52, other=linear_230)
+        add_58 = add_wrapper(line_number=sys._getframe().f_lineno,input=add_52, other=linear_230)
         add_52 = linear_230 = None
-        add_59 = torch.add(input=add_53, other=linear_231)
+        add_59 = add_wrapper(line_number=sys._getframe().f_lineno,input=add_53, other=linear_231)
         add_53 = linear_231 = None
         permute = add_54.permute([1, 0, 2])
         add_54 = None
@@ -2215,116 +2258,121 @@ class ExportedModule(nn.Module):
             input=cat_24, nan=0.0, posinf=65504.0, neginf=-65504.0
         )
         cat_24 = None
-        clamp_59 = torch.clamp(input=nan_to_num_59, min=-100.1, max=100.1)
-        nan_to_num_59 = None
-        _holder__attr_228 = self._attr_228
-        matmul_17 = torch.matmul(input=clamp_59, other=_holder__attr_228)
-        clamp_59 = _holder__attr_228 = None
-        _holder__attr_229 = self._attr_229
-        add_60 = torch.add(input=_holder__attr_229, other=matmul_17)
-        _holder__attr_229 = matmul_17 = None
-        permute_105 = add_60.permute([1, 0, 2])
-        add_60 = None
-        reshape = torch.reshape(
-            input=permute_105,
-            shape=(-1, 23040),
-        )
-        permute_105 = None
-        cat_25 = torch.cat(
-            tensors=(
-                getitem_3708,
-                getitem_3683,
-                getitem_3707,
-                getitem_3691,
-                getitem_3706,
-                getitem_3690,
-                getitem_3705,
-                getitem_3684,
-                getitem_3696,
-                getitem_3695,
-                getitem_3704,
-                getitem_3685,
-                getitem_3697,
-                getitem_3694,
-                getitem_3698,
-                getitem_3693,
-                getitem_3703,
-                getitem_3692,
-                getitem_3699,
-                getitem_3689,
-                getitem_3702,
-                getitem_3686,
-                getitem_3700,
-                getitem_3687,
-                getitem_3701,
-                getitem_3688,
-                linear_314,
-                layer_norm_120,
-                layer_norm_128,
-                layer_norm_124,
-                layer_norm_117,
-                layer_norm_111,
-                layer_norm_109,
-                layer_norm_116,
-                layer_norm_132,
-                layer_norm_126,
-                layer_norm_127,
-                layer_norm_107,
-                layer_norm_113,
-                layer_norm_110,
-                layer_norm_133,
-                layer_norm_118,
-                layer_norm_112,
-                layer_norm_131,
-                layer_norm_122,
-                layer_norm_125,
-                layer_norm_121,
-                layer_norm_119,
-                layer_norm_130,
-                layer_norm_108,
-                layer_norm_129,
-                layer_norm_106,
-                layer_norm_114,
-                layer_norm_134,
-                layer_norm_123,
-                layer_norm_115,
-                reshape,
-            ),
-            dim=1,
-        )
-        getitem_3708 = getitem_3683 = getitem_3707 = getitem_3691 = getitem_3706 = (
-            getitem_3690
-        ) = getitem_3705 = getitem_3684 = getitem_3696 = getitem_3695 = getitem_3704 = (
-            getitem_3685
-        ) = getitem_3697 = getitem_3694 = getitem_3698 = getitem_3693 = getitem_3703 = (
-            getitem_3692
-        ) = getitem_3699 = getitem_3689 = getitem_3702 = getitem_3686 = getitem_3700 = (
-            getitem_3687
-        ) = getitem_3701 = getitem_3688 = linear_314 = layer_norm_120 = (
-            layer_norm_128
-        ) = layer_norm_124 = layer_norm_117 = layer_norm_111 = layer_norm_109 = (
-            layer_norm_116
-        ) = layer_norm_132 = layer_norm_126 = layer_norm_127 = layer_norm_107 = (
-            layer_norm_113
-        ) = layer_norm_110 = layer_norm_133 = layer_norm_118 = layer_norm_112 = (
-            layer_norm_131
-        ) = layer_norm_122 = layer_norm_125 = layer_norm_121 = layer_norm_119 = (
-            layer_norm_130
-        ) = layer_norm_108 = layer_norm_129 = layer_norm_106 = layer_norm_114 = (
-            layer_norm_134
-        ) = layer_norm_123 = layer_norm_115 = reshape = None
-        reshape_655 = torch.reshape(
-            input=cat_25,
-            shape=[-1, 1219, 160],
-        )
-        cat_25 = None
-        permute_74 = reshape_655.permute([0, 2, 1])
-        contiguous_21 = permute_74.contiguous()
-        _holder__attr_230 = self._attr_230
-        _holder__attr_231 = self._attr_231
-        linear_315 = torch.nn.functional.linear(
-            input=contiguous_21, weight=_holder__attr_230, bias=_holder__attr_231
-        )
+        torch.cuda.synchronize()
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+            clamp_59 = torch.clamp(input=nan_to_num_59, min=-100.1, max=100.1)
+            nan_to_num_59 = None
+            _holder__attr_228 = self._attr_228
+            matmul_17 = torch.matmul(input=clamp_59, other=_holder__attr_228)
+            clamp_59 = _holder__attr_228 = None
+            _holder__attr_229 = self._attr_229
+            add_60 = add_wrapper(line_number=sys._getframe().f_lineno,input=_holder__attr_229, other=matmul_17)
+            _holder__attr_229 = matmul_17 = None
+            permute_105 = add_60.permute([1, 0, 2])
+            add_60 = None
+            reshape = torch.reshape(
+                input=permute_105,
+                shape=(-1, 23040),
+            )
+            permute_105 = None
+            cat_25 = torch.cat(
+                tensors=(
+                    getitem_3708,
+                    getitem_3683,
+                    getitem_3707,
+                    getitem_3691,
+                    getitem_3706,
+                    getitem_3690,
+                    getitem_3705,
+                    getitem_3684,
+                    getitem_3696,
+                    getitem_3695,
+                    getitem_3704,
+                    getitem_3685,
+                    getitem_3697,
+                    getitem_3694,
+                    getitem_3698,
+                    getitem_3693,
+                    getitem_3703,
+                    getitem_3692,
+                    getitem_3699,
+                    getitem_3689,
+                    getitem_3702,
+                    getitem_3686,
+                    getitem_3700,
+                    getitem_3687,
+                    getitem_3701,
+                    getitem_3688,
+                    linear_314,
+                    layer_norm_120,
+                    layer_norm_128,
+                    layer_norm_124,
+                    layer_norm_117,
+                    layer_norm_111,
+                    layer_norm_109,
+                    layer_norm_116,
+                    layer_norm_132,
+                    layer_norm_126,
+                    layer_norm_127,
+                    layer_norm_107,
+                    layer_norm_113,
+                    layer_norm_110,
+                    layer_norm_133,
+                    layer_norm_118,
+                    layer_norm_112,
+                    layer_norm_131,
+                    layer_norm_122,
+                    layer_norm_125,
+                    layer_norm_121,
+                    layer_norm_119,
+                    layer_norm_130,
+                    layer_norm_108,
+                    layer_norm_129,
+                    layer_norm_106,
+                    layer_norm_114,
+                    layer_norm_134,
+                    layer_norm_123,
+                    layer_norm_115,
+                    reshape,
+                ),
+                dim=1,
+            )
+            getitem_3708 = getitem_3683 = getitem_3707 = getitem_3691 = getitem_3706 = (
+                getitem_3690
+            ) = getitem_3705 = getitem_3684 = getitem_3696 = getitem_3695 = getitem_3704 = (
+                getitem_3685
+            ) = getitem_3697 = getitem_3694 = getitem_3698 = getitem_3693 = getitem_3703 = (
+                getitem_3692
+            ) = getitem_3699 = getitem_3689 = getitem_3702 = getitem_3686 = getitem_3700 = (
+                getitem_3687
+            ) = getitem_3701 = getitem_3688 = linear_314 = layer_norm_120 = (
+                layer_norm_128
+            ) = layer_norm_124 = layer_norm_117 = layer_norm_111 = layer_norm_109 = (
+                layer_norm_116
+            ) = layer_norm_132 = layer_norm_126 = layer_norm_127 = layer_norm_107 = (
+                layer_norm_113
+            ) = layer_norm_110 = layer_norm_133 = layer_norm_118 = layer_norm_112 = (
+                layer_norm_131
+            ) = layer_norm_122 = layer_norm_125 = layer_norm_121 = layer_norm_119 = (
+                layer_norm_130
+            ) = layer_norm_108 = layer_norm_129 = layer_norm_106 = layer_norm_114 = (
+                layer_norm_134
+            ) = layer_norm_123 = layer_norm_115 = reshape = None
+            reshape_655 = torch.reshape(
+                input=cat_25,
+                shape=[-1, 1219, 160],
+            )
+            cat_25 = None
+            permute_74 = reshape_655.permute([0, 2, 1])
+            contiguous_21 = contiguous_wrapper(permute_74,sys._getframe().f_lineno)#.contiguous()
+            _holder__attr_230 = self._attr_230
+            _holder__attr_231 = self._attr_231
+            linear_315 = linear_wrapper(line_number=sys._getframe().f_lineno,
+                input=contiguous_21, weight=_holder__attr_230, bias=_holder__attr_231
+            )
+            
+            torch.cuda.synchronize()
+        prof.export_chrome_trace(f"trace{time.time()}.json")
         contiguous_21 = _holder__attr_230 = _holder__attr_231 = None
         getitem_4149 = linear_315[:, :, 0:232]
         getitem_4150 = linear_315[:, :, 232:296]
@@ -2361,13 +2409,13 @@ class ExportedModule(nn.Module):
         getitem_4088 = None
         _holder__attr_232 = self._attr_232
         _holder__attr_233 = self._attr_233
-        linear_234 = torch.nn.functional.linear(
+        linear_234 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_657, weight=_holder__attr_232, bias=_holder__attr_233
         )
         reshape_657 = _holder__attr_232 = _holder__attr_233 = None
         _holder__attr_234 = self._attr_234
         _holder__attr_235 = self._attr_235
-        layer_norm_153 = torch.nn.functional.layer_norm(
+        layer_norm_153 = ln_wrapper(
             input=linear_234,
             normalized_shape=(512,),
             weight=_holder__attr_234,
@@ -2381,7 +2429,7 @@ class ExportedModule(nn.Module):
         linear_234 = sigmoid_70 = None
         _holder__attr_236 = self._attr_236
         _holder__attr_237 = self._attr_237
-        linear_235 = torch.nn.functional.linear(
+        linear_235 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_70, weight=_holder__attr_236, bias=_holder__attr_237
         )
         mul_70 = _holder__attr_236 = _holder__attr_237 = None
@@ -2402,7 +2450,7 @@ class ExportedModule(nn.Module):
         mul_71 = None
         _holder__attr_238 = self._attr_238
         _holder__attr_239 = self._attr_239
-        linear_236 = torch.nn.functional.linear(
+        linear_236 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_60, weight=_holder__attr_238, bias=_holder__attr_239
         )
         tanh_60 = _holder__attr_238 = _holder__attr_239 = None
@@ -2411,7 +2459,7 @@ class ExportedModule(nn.Module):
         size_121 = None
         _holder__attr_240 = self._attr_240
         _holder__attr_241 = self._attr_241
-        layer_norm_154 = torch.nn.functional.layer_norm(
+        layer_norm_154 = ln_wrapper(
             input=linear_236,
             normalized_shape=getitem_4096,
             weight=_holder__attr_240,
@@ -2424,7 +2472,7 @@ class ExportedModule(nn.Module):
         size_122 = None
         _holder__attr_242 = self._attr_242
         _holder__attr_243 = self._attr_243
-        layer_norm_155 = torch.nn.functional.layer_norm(
+        layer_norm_155 = ln_wrapper(
             input=layer_norm_154,
             normalized_shape=getitem_4097,
             weight=_holder__attr_242,
@@ -2434,29 +2482,29 @@ class ExportedModule(nn.Module):
         layer_norm_154 = getitem_4097 = _holder__attr_242 = _holder__attr_243 = None
         _holder__attr_244 = self._attr_244
         _holder__attr_245 = self._attr_245
-        linear_237 = torch.nn.functional.linear(
+        linear_237 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_155, weight=_holder__attr_244, bias=_holder__attr_245
         )
         _holder__attr_244 = _holder__attr_245 = None
         _holder__attr_246 = self._attr_246
         _holder__attr_247 = self._attr_247
-        linear_238 = torch.nn.functional.linear(
+        linear_238 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_237, weight=_holder__attr_246, bias=_holder__attr_247
         )
         linear_237 = _holder__attr_246 = _holder__attr_247 = None
         mul_72 = torch.mul(input=layer_norm_155, other=linear_238)
         linear_238 = None
-        add_61 = torch.add(input=layer_norm_155, other=mul_72)
+        add_61 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_155, other=mul_72)
         layer_norm_155 = mul_72 = None
         _holder__attr_248 = self._attr_248
         _holder__attr_249 = self._attr_249
-        linear_239 = torch.nn.functional.linear(
+        linear_239 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_61, weight=_holder__attr_248, bias=_holder__attr_249
         )
         add_61 = _holder__attr_248 = _holder__attr_249 = None
         _holder__attr_250 = self._attr_250
         _holder__attr_251 = self._attr_251
-        layer_norm_156 = torch.nn.functional.layer_norm(
+        layer_norm_156 = ln_wrapper(
             input=linear_239,
             normalized_shape=(4096,),
             weight=_holder__attr_250,
@@ -2470,13 +2518,13 @@ class ExportedModule(nn.Module):
         linear_239 = sigmoid_71 = None
         _holder__attr_252 = self._attr_252
         _holder__attr_253 = self._attr_253
-        linear_240 = torch.nn.functional.linear(
+        linear_240 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_73, weight=_holder__attr_252, bias=_holder__attr_253
         )
         _holder__attr_252 = _holder__attr_253 = None
         _holder__attr_254 = self._attr_254
         _holder__attr_255 = self._attr_255
-        layer_norm_157 = torch.nn.functional.layer_norm(
+        layer_norm_157 = ln_wrapper(
             input=linear_240,
             normalized_shape=(2048,),
             weight=_holder__attr_254,
@@ -2490,15 +2538,15 @@ class ExportedModule(nn.Module):
         linear_240 = sigmoid_72 = None
         _holder__attr_256 = self._attr_256
         _holder__attr_257 = self._attr_257
-        linear_241 = torch.nn.functional.linear(
+        linear_241 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_74, weight=_holder__attr_256, bias=_holder__attr_257
         )
         mul_74 = _holder__attr_256 = _holder__attr_257 = None
-        add_62 = torch.add(input=mul_73, other=linear_241)
+        add_62 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_73, other=linear_241)
         mul_73 = linear_241 = None
         _holder__attr_258 = self._attr_258
         _holder__attr_259 = self._attr_259
-        layer_norm_158 = torch.nn.functional.layer_norm(
+        layer_norm_158 = ln_wrapper(
             input=add_62,
             normalized_shape=(4096,),
             weight=_holder__attr_258,
@@ -2512,7 +2560,7 @@ class ExportedModule(nn.Module):
         add_62 = sigmoid_73 = None
         _holder__attr_260 = self._attr_260
         _holder__attr_261 = self._attr_261
-        linear_242 = torch.nn.functional.linear(
+        linear_242 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_75, weight=_holder__attr_260, bias=_holder__attr_261
         )
         mul_75 = _holder__attr_260 = _holder__attr_261 = None
@@ -2523,14 +2571,14 @@ class ExportedModule(nn.Module):
             shape=[-1, 64, 160],
         )
         cat_27 = None
-        add_63 = torch.add(input=permute_78, other=reshape_659)
+        add_63 = add_wrapper(line_number=sys._getframe().f_lineno,input=permute_78, other=reshape_659)
         permute_78 = reshape_659 = None
         size_123 = add_63.size()
         getitem_4098 = size_123[2:]
         size_123 = None
         _holder__attr_262 = self._attr_262
         _holder__attr_263 = self._attr_263
-        layer_norm_159 = torch.nn.functional.layer_norm(
+        layer_norm_159 = ln_wrapper(
             input=add_63,
             normalized_shape=getitem_4098,
             weight=_holder__attr_262,
@@ -2541,10 +2589,10 @@ class ExportedModule(nn.Module):
         cat_28 = torch.cat(tensors=[layer_norm_159, getitem_4089], dim=1)
         layer_norm_159 = getitem_4089 = None
         permute_79 = cat_28.permute([0, 2, 1])
-        contiguous_23 = permute_79.contiguous()
+        contiguous_23 = contiguous_wrapper(permute_79,sys._getframe().f_lineno)#.contiguous()
         _holder__attr_264 = self._attr_264
         _holder__attr_265 = self._attr_265
-        linear_243 = torch.nn.functional.linear(
+        linear_243 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_23, weight=_holder__attr_264, bias=_holder__attr_265
         )
         contiguous_23 = _holder__attr_264 = _holder__attr_265 = None
@@ -2568,13 +2616,13 @@ class ExportedModule(nn.Module):
         getitem_4100 = None
         _holder__attr_266 = self._attr_266
         _holder__attr_267 = self._attr_267
-        linear_244 = torch.nn.functional.linear(
+        linear_244 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_661, weight=_holder__attr_266, bias=_holder__attr_267
         )
         reshape_661 = _holder__attr_266 = _holder__attr_267 = None
         _holder__attr_268 = self._attr_268
         _holder__attr_269 = self._attr_269
-        layer_norm_160 = torch.nn.functional.layer_norm(
+        layer_norm_160 = ln_wrapper(
             input=linear_244,
             normalized_shape=(512,),
             weight=_holder__attr_268,
@@ -2588,7 +2636,7 @@ class ExportedModule(nn.Module):
         linear_244 = sigmoid_74 = None
         _holder__attr_270 = self._attr_270
         _holder__attr_271 = self._attr_271
-        linear_245 = torch.nn.functional.linear(
+        linear_245 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_76, weight=_holder__attr_270, bias=_holder__attr_271
         )
         mul_76 = _holder__attr_270 = _holder__attr_271 = None
@@ -2609,7 +2657,7 @@ class ExportedModule(nn.Module):
         mul_77 = None
         _holder__attr_272 = self._attr_272
         _holder__attr_273 = self._attr_273
-        linear_246 = torch.nn.functional.linear(
+        linear_246 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_61, weight=_holder__attr_272, bias=_holder__attr_273
         )
         tanh_61 = _holder__attr_272 = _holder__attr_273 = None
@@ -2618,7 +2666,7 @@ class ExportedModule(nn.Module):
         size_124 = None
         _holder__attr_274 = self._attr_274
         _holder__attr_275 = self._attr_275
-        layer_norm_161 = torch.nn.functional.layer_norm(
+        layer_norm_161 = ln_wrapper(
             input=linear_246,
             normalized_shape=getitem_4102,
             weight=_holder__attr_274,
@@ -2631,7 +2679,7 @@ class ExportedModule(nn.Module):
         size_125 = None
         _holder__attr_276 = self._attr_276
         _holder__attr_277 = self._attr_277
-        layer_norm_162 = torch.nn.functional.layer_norm(
+        layer_norm_162 = ln_wrapper(
             input=layer_norm_161,
             normalized_shape=getitem_4103,
             weight=_holder__attr_276,
@@ -2641,29 +2689,29 @@ class ExportedModule(nn.Module):
         layer_norm_161 = getitem_4103 = _holder__attr_276 = _holder__attr_277 = None
         _holder__attr_278 = self._attr_278
         _holder__attr_279 = self._attr_279
-        linear_247 = torch.nn.functional.linear(
+        linear_247 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_162, weight=_holder__attr_278, bias=_holder__attr_279
         )
         _holder__attr_278 = _holder__attr_279 = None
         _holder__attr_280 = self._attr_280
         _holder__attr_281 = self._attr_281
-        linear_248 = torch.nn.functional.linear(
+        linear_248 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_247, weight=_holder__attr_280, bias=_holder__attr_281
         )
         linear_247 = _holder__attr_280 = _holder__attr_281 = None
         mul_78 = torch.mul(input=layer_norm_162, other=linear_248)
         linear_248 = None
-        add_64 = torch.add(input=layer_norm_162, other=mul_78)
+        add_64 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_162, other=mul_78)
         layer_norm_162 = mul_78 = None
         _holder__attr_282 = self._attr_282
         _holder__attr_283 = self._attr_283
-        linear_249 = torch.nn.functional.linear(
+        linear_249 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_64, weight=_holder__attr_282, bias=_holder__attr_283
         )
         add_64 = _holder__attr_282 = _holder__attr_283 = None
         _holder__attr_284 = self._attr_284
         _holder__attr_285 = self._attr_285
-        layer_norm_163 = torch.nn.functional.layer_norm(
+        layer_norm_163 = ln_wrapper(
             input=linear_249,
             normalized_shape=(4096,),
             weight=_holder__attr_284,
@@ -2677,13 +2725,13 @@ class ExportedModule(nn.Module):
         linear_249 = sigmoid_75 = None
         _holder__attr_286 = self._attr_286
         _holder__attr_287 = self._attr_287
-        linear_250 = torch.nn.functional.linear(
+        linear_250 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_79, weight=_holder__attr_286, bias=_holder__attr_287
         )
         _holder__attr_286 = _holder__attr_287 = None
         _holder__attr_288 = self._attr_288
         _holder__attr_289 = self._attr_289
-        layer_norm_164 = torch.nn.functional.layer_norm(
+        layer_norm_164 = ln_wrapper(
             input=linear_250,
             normalized_shape=(2048,),
             weight=_holder__attr_288,
@@ -2697,15 +2745,15 @@ class ExportedModule(nn.Module):
         linear_250 = sigmoid_76 = None
         _holder__attr_290 = self._attr_290
         _holder__attr_291 = self._attr_291
-        linear_251 = torch.nn.functional.linear(
+        linear_251 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_80, weight=_holder__attr_290, bias=_holder__attr_291
         )
         mul_80 = _holder__attr_290 = _holder__attr_291 = None
-        add_65 = torch.add(input=mul_79, other=linear_251)
+        add_65 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_79, other=linear_251)
         mul_79 = linear_251 = None
         _holder__attr_292 = self._attr_292
         _holder__attr_293 = self._attr_293
-        layer_norm_165 = torch.nn.functional.layer_norm(
+        layer_norm_165 = ln_wrapper(
             input=add_65,
             normalized_shape=(4096,),
             weight=_holder__attr_292,
@@ -2719,7 +2767,7 @@ class ExportedModule(nn.Module):
         add_65 = sigmoid_77 = None
         _holder__attr_294 = self._attr_294
         _holder__attr_295 = self._attr_295
-        linear_252 = torch.nn.functional.linear(
+        linear_252 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_81, weight=_holder__attr_294, bias=_holder__attr_295
         )
         mul_81 = _holder__attr_294 = _holder__attr_295 = None
@@ -2730,14 +2778,14 @@ class ExportedModule(nn.Module):
             shape=[-1, 64, 160],
         )
         cat_30 = None
-        add_66 = torch.add(input=getitem_4101, other=reshape_663)
+        add_66 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_4101, other=reshape_663)
         getitem_4101 = reshape_663 = None
         size_126 = add_66.size()
         getitem_4104 = size_126[2:]
         size_126 = None
         _holder__attr_296 = self._attr_296
         _holder__attr_297 = self._attr_297
-        layer_norm_166 = torch.nn.functional.layer_norm(
+        layer_norm_166 = ln_wrapper(
             input=add_66,
             normalized_shape=getitem_4104,
             weight=_holder__attr_296,
@@ -2748,10 +2796,10 @@ class ExportedModule(nn.Module):
         cat_31 = torch.cat(tensors=[layer_norm_166, getitem_4090], dim=1)
         layer_norm_166 = getitem_4090 = None
         permute_82 = cat_31.permute([0, 2, 1])
-        contiguous_24 = permute_82.contiguous()
+        contiguous_24 = contiguous_wrapper(permute_82,sys._getframe().f_lineno)#.contiguous()
         _holder__attr_298 = self._attr_298
         _holder__attr_299 = self._attr_299
-        linear_253 = torch.nn.functional.linear(
+        linear_253 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_24, weight=_holder__attr_298, bias=_holder__attr_299
         )
         contiguous_24 = _holder__attr_298 = _holder__attr_299 = None
@@ -2775,13 +2823,13 @@ class ExportedModule(nn.Module):
         getitem_4106 = None
         _holder__attr_300 = self._attr_300
         _holder__attr_301 = self._attr_301
-        linear_254 = torch.nn.functional.linear(
+        linear_254 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_665, weight=_holder__attr_300, bias=_holder__attr_301
         )
         reshape_665 = _holder__attr_300 = _holder__attr_301 = None
         _holder__attr_302 = self._attr_302
         _holder__attr_303 = self._attr_303
-        layer_norm_167 = torch.nn.functional.layer_norm(
+        layer_norm_167 = ln_wrapper(
             input=linear_254,
             normalized_shape=(512,),
             weight=_holder__attr_302,
@@ -2795,7 +2843,7 @@ class ExportedModule(nn.Module):
         linear_254 = sigmoid_78 = None
         _holder__attr_304 = self._attr_304
         _holder__attr_305 = self._attr_305
-        linear_255 = torch.nn.functional.linear(
+        linear_255 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_82, weight=_holder__attr_304, bias=_holder__attr_305
         )
         mul_82 = _holder__attr_304 = _holder__attr_305 = None
@@ -2816,7 +2864,7 @@ class ExportedModule(nn.Module):
         mul_83 = None
         _holder__attr_306 = self._attr_306
         _holder__attr_307 = self._attr_307
-        linear_256 = torch.nn.functional.linear(
+        linear_256 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_62, weight=_holder__attr_306, bias=_holder__attr_307
         )
         tanh_62 = _holder__attr_306 = _holder__attr_307 = None
@@ -2825,7 +2873,7 @@ class ExportedModule(nn.Module):
         size_127 = None
         _holder__attr_308 = self._attr_308
         _holder__attr_309 = self._attr_309
-        layer_norm_168 = torch.nn.functional.layer_norm(
+        layer_norm_168 = ln_wrapper(
             input=linear_256,
             normalized_shape=getitem_4108,
             weight=_holder__attr_308,
@@ -2838,7 +2886,7 @@ class ExportedModule(nn.Module):
         size_128 = None
         _holder__attr_310 = self._attr_310
         _holder__attr_311 = self._attr_311
-        layer_norm_169 = torch.nn.functional.layer_norm(
+        layer_norm_169 = ln_wrapper(
             input=layer_norm_168,
             normalized_shape=getitem_4109,
             weight=_holder__attr_310,
@@ -2848,29 +2896,29 @@ class ExportedModule(nn.Module):
         layer_norm_168 = getitem_4109 = _holder__attr_310 = _holder__attr_311 = None
         _holder__attr_312 = self._attr_312
         _holder__attr_313 = self._attr_313
-        linear_257 = torch.nn.functional.linear(
+        linear_257 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_169, weight=_holder__attr_312, bias=_holder__attr_313
         )
         _holder__attr_312 = _holder__attr_313 = None
         _holder__attr_314 = self._attr_314
         _holder__attr_315 = self._attr_315
-        linear_258 = torch.nn.functional.linear(
+        linear_258 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_257, weight=_holder__attr_314, bias=_holder__attr_315
         )
         linear_257 = _holder__attr_314 = _holder__attr_315 = None
         mul_84 = torch.mul(input=layer_norm_169, other=linear_258)
         linear_258 = None
-        add_67 = torch.add(input=layer_norm_169, other=mul_84)
+        add_67 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_169, other=mul_84)
         layer_norm_169 = mul_84 = None
         _holder__attr_316 = self._attr_316
         _holder__attr_317 = self._attr_317
-        linear_259 = torch.nn.functional.linear(
+        linear_259 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_67, weight=_holder__attr_316, bias=_holder__attr_317
         )
         add_67 = _holder__attr_316 = _holder__attr_317 = None
         _holder__attr_318 = self._attr_318
         _holder__attr_319 = self._attr_319
-        layer_norm_170 = torch.nn.functional.layer_norm(
+        layer_norm_170 = ln_wrapper(
             input=linear_259,
             normalized_shape=(4096,),
             weight=_holder__attr_318,
@@ -2884,13 +2932,13 @@ class ExportedModule(nn.Module):
         linear_259 = sigmoid_79 = None
         _holder__attr_320 = self._attr_320
         _holder__attr_321 = self._attr_321
-        linear_260 = torch.nn.functional.linear(
+        linear_260 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_85, weight=_holder__attr_320, bias=_holder__attr_321
         )
         _holder__attr_320 = _holder__attr_321 = None
         _holder__attr_322 = self._attr_322
         _holder__attr_323 = self._attr_323
-        layer_norm_171 = torch.nn.functional.layer_norm(
+        layer_norm_171 = ln_wrapper(
             input=linear_260,
             normalized_shape=(2048,),
             weight=_holder__attr_322,
@@ -2904,15 +2952,15 @@ class ExportedModule(nn.Module):
         linear_260 = sigmoid_80 = None
         _holder__attr_324 = self._attr_324
         _holder__attr_325 = self._attr_325
-        linear_261 = torch.nn.functional.linear(
+        linear_261 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_86, weight=_holder__attr_324, bias=_holder__attr_325
         )
         mul_86 = _holder__attr_324 = _holder__attr_325 = None
-        add_68 = torch.add(input=mul_85, other=linear_261)
+        add_68 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_85, other=linear_261)
         mul_85 = linear_261 = None
         _holder__attr_326 = self._attr_326
         _holder__attr_327 = self._attr_327
-        layer_norm_172 = torch.nn.functional.layer_norm(
+        layer_norm_172 = ln_wrapper(
             input=add_68,
             normalized_shape=(4096,),
             weight=_holder__attr_326,
@@ -2926,7 +2974,7 @@ class ExportedModule(nn.Module):
         add_68 = sigmoid_81 = None
         _holder__attr_328 = self._attr_328
         _holder__attr_329 = self._attr_329
-        linear_262 = torch.nn.functional.linear(
+        linear_262 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_87, weight=_holder__attr_328, bias=_holder__attr_329
         )
         mul_87 = _holder__attr_328 = _holder__attr_329 = None
@@ -2936,15 +2984,16 @@ class ExportedModule(nn.Module):
             input=cat_33,
             shape=[-1, 64, 160],
         )
+        
         cat_33 = None
-        add_69 = torch.add(input=getitem_4107, other=reshape_667)
+        add_69 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_4107, other=reshape_667)
         getitem_4107 = reshape_667 = None
         size_129 = add_69.size()
         getitem_4110 = size_129[2:]
         size_129 = None
         _holder__attr_330 = self._attr_330
         _holder__attr_331 = self._attr_331
-        layer_norm_173 = torch.nn.functional.layer_norm(
+        layer_norm_173 = ln_wrapper(
             input=add_69,
             normalized_shape=getitem_4110,
             weight=_holder__attr_330,
@@ -2955,10 +3004,10 @@ class ExportedModule(nn.Module):
         cat_34 = torch.cat(tensors=[layer_norm_173, getitem_4091], dim=1)
         layer_norm_173 = getitem_4091 = None
         permute_85 = cat_34.permute([0, 2, 1])
-        contiguous_25 = permute_85.contiguous()
+        contiguous_25 = contiguous_wrapper(permute_85,sys._getframe().f_lineno)#.contiguous()
         _holder__attr_332 = self._attr_332
         _holder__attr_333 = self._attr_333
-        linear_263 = torch.nn.functional.linear(
+        linear_263 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_25, weight=_holder__attr_332, bias=_holder__attr_333
         )
         contiguous_25 = _holder__attr_332 = _holder__attr_333 = None
@@ -2982,13 +3031,13 @@ class ExportedModule(nn.Module):
         getitem_4112 = None
         _holder__attr_334 = self._attr_334
         _holder__attr_335 = self._attr_335
-        linear_264 = torch.nn.functional.linear(
+        linear_264 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_669, weight=_holder__attr_334, bias=_holder__attr_335
         )
         reshape_669 = _holder__attr_334 = _holder__attr_335 = None
         _holder__attr_336 = self._attr_336
         _holder__attr_337 = self._attr_337
-        layer_norm_174 = torch.nn.functional.layer_norm(
+        layer_norm_174 = ln_wrapper(
             input=linear_264,
             normalized_shape=(512,),
             weight=_holder__attr_336,
@@ -3002,7 +3051,7 @@ class ExportedModule(nn.Module):
         linear_264 = sigmoid_82 = None
         _holder__attr_338 = self._attr_338
         _holder__attr_339 = self._attr_339
-        linear_265 = torch.nn.functional.linear(
+        linear_265 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_88, weight=_holder__attr_338, bias=_holder__attr_339
         )
         mul_88 = _holder__attr_338 = _holder__attr_339 = None
@@ -3023,7 +3072,7 @@ class ExportedModule(nn.Module):
         mul_89 = None
         _holder__attr_340 = self._attr_340
         _holder__attr_341 = self._attr_341
-        linear_266 = torch.nn.functional.linear(
+        linear_266 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_63, weight=_holder__attr_340, bias=_holder__attr_341
         )
         tanh_63 = _holder__attr_340 = _holder__attr_341 = None
@@ -3032,7 +3081,7 @@ class ExportedModule(nn.Module):
         size_130 = None
         _holder__attr_342 = self._attr_342
         _holder__attr_343 = self._attr_343
-        layer_norm_175 = torch.nn.functional.layer_norm(
+        layer_norm_175 = ln_wrapper(
             input=linear_266,
             normalized_shape=getitem_4114,
             weight=_holder__attr_342,
@@ -3045,7 +3094,7 @@ class ExportedModule(nn.Module):
         size_131 = None
         _holder__attr_344 = self._attr_344
         _holder__attr_345 = self._attr_345
-        layer_norm_176 = torch.nn.functional.layer_norm(
+        layer_norm_176 = ln_wrapper(
             input=layer_norm_175,
             normalized_shape=getitem_4115,
             weight=_holder__attr_344,
@@ -3055,29 +3104,29 @@ class ExportedModule(nn.Module):
         layer_norm_175 = getitem_4115 = _holder__attr_344 = _holder__attr_345 = None
         _holder__attr_346 = self._attr_346
         _holder__attr_347 = self._attr_347
-        linear_267 = torch.nn.functional.linear(
+        linear_267 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_176, weight=_holder__attr_346, bias=_holder__attr_347
         )
         _holder__attr_346 = _holder__attr_347 = None
         _holder__attr_348 = self._attr_348
         _holder__attr_349 = self._attr_349
-        linear_268 = torch.nn.functional.linear(
+        linear_268 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_267, weight=_holder__attr_348, bias=_holder__attr_349
         )
         linear_267 = _holder__attr_348 = _holder__attr_349 = None
         mul_90 = torch.mul(input=layer_norm_176, other=linear_268)
         linear_268 = None
-        add_70 = torch.add(input=layer_norm_176, other=mul_90)
+        add_70 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_176, other=mul_90)
         layer_norm_176 = mul_90 = None
         _holder__attr_350 = self._attr_350
         _holder__attr_351 = self._attr_351
-        linear_269 = torch.nn.functional.linear(
+        linear_269 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_70, weight=_holder__attr_350, bias=_holder__attr_351
         )
         add_70 = _holder__attr_350 = _holder__attr_351 = None
         _holder__attr_352 = self._attr_352
         _holder__attr_353 = self._attr_353
-        layer_norm_177 = torch.nn.functional.layer_norm(
+        layer_norm_177 = ln_wrapper(
             input=linear_269,
             normalized_shape=(4096,),
             weight=_holder__attr_352,
@@ -3091,13 +3140,13 @@ class ExportedModule(nn.Module):
         linear_269 = sigmoid_83 = None
         _holder__attr_354 = self._attr_354
         _holder__attr_355 = self._attr_355
-        linear_270 = torch.nn.functional.linear(
+        linear_270 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_91, weight=_holder__attr_354, bias=_holder__attr_355
         )
         _holder__attr_354 = _holder__attr_355 = None
         _holder__attr_356 = self._attr_356
         _holder__attr_357 = self._attr_357
-        layer_norm_178 = torch.nn.functional.layer_norm(
+        layer_norm_178 = ln_wrapper(
             input=linear_270,
             normalized_shape=(2048,),
             weight=_holder__attr_356,
@@ -3111,15 +3160,15 @@ class ExportedModule(nn.Module):
         linear_270 = sigmoid_84 = None
         _holder__attr_358 = self._attr_358
         _holder__attr_359 = self._attr_359
-        linear_271 = torch.nn.functional.linear(
+        linear_271 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_92, weight=_holder__attr_358, bias=_holder__attr_359
         )
         mul_92 = _holder__attr_358 = _holder__attr_359 = None
-        add_71 = torch.add(input=mul_91, other=linear_271)
+        add_71 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_91, other=linear_271)
         mul_91 = linear_271 = None
         _holder__attr_360 = self._attr_360
         _holder__attr_361 = self._attr_361
-        layer_norm_179 = torch.nn.functional.layer_norm(
+        layer_norm_179 = ln_wrapper(
             input=add_71,
             normalized_shape=(4096,),
             weight=_holder__attr_360,
@@ -3133,7 +3182,7 @@ class ExportedModule(nn.Module):
         add_71 = sigmoid_85 = None
         _holder__attr_362 = self._attr_362
         _holder__attr_363 = self._attr_363
-        linear_272 = torch.nn.functional.linear(
+        linear_272 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_93, weight=_holder__attr_362, bias=_holder__attr_363
         )
         mul_93 = _holder__attr_362 = _holder__attr_363 = None
@@ -3144,14 +3193,14 @@ class ExportedModule(nn.Module):
             shape=[-1, 64, 160],
         )
         cat_36 = None
-        add_72 = torch.add(input=getitem_4113, other=reshape_671)
+        add_72 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_4113, other=reshape_671)
         getitem_4113 = reshape_671 = None
         size_132 = add_72.size()
         getitem_4116 = size_132[2:]
         size_132 = None
         _holder__attr_364 = self._attr_364
         _holder__attr_365 = self._attr_365
-        layer_norm_180 = torch.nn.functional.layer_norm(
+        layer_norm_180 = ln_wrapper(
             input=add_72,
             normalized_shape=getitem_4116,
             weight=_holder__attr_364,
@@ -3162,10 +3211,10 @@ class ExportedModule(nn.Module):
         cat_37 = torch.cat(tensors=[layer_norm_180, getitem_4092], dim=1)
         layer_norm_180 = getitem_4092 = None
         permute_88 = cat_37.permute([0, 2, 1])
-        contiguous_26 = permute_88.contiguous()
+        contiguous_26 = contiguous_wrapper(permute_88,sys._getframe().f_lineno)#.contiguous()
         _holder__attr_366 = self._attr_366
         _holder__attr_367 = self._attr_367
-        linear_273 = torch.nn.functional.linear(
+        linear_273 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_26, weight=_holder__attr_366, bias=_holder__attr_367
         )
         contiguous_26 = _holder__attr_366 = _holder__attr_367 = None
@@ -3189,13 +3238,13 @@ class ExportedModule(nn.Module):
         getitem_4118 = None
         _holder__attr_368 = self._attr_368
         _holder__attr_369 = self._attr_369
-        linear_274 = torch.nn.functional.linear(
+        linear_274 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_673, weight=_holder__attr_368, bias=_holder__attr_369
         )
         reshape_673 = _holder__attr_368 = _holder__attr_369 = None
         _holder__attr_370 = self._attr_370
         _holder__attr_371 = self._attr_371
-        layer_norm_181 = torch.nn.functional.layer_norm(
+        layer_norm_181 = ln_wrapper(
             input=linear_274,
             normalized_shape=(512,),
             weight=_holder__attr_370,
@@ -3209,7 +3258,7 @@ class ExportedModule(nn.Module):
         linear_274 = sigmoid_86 = None
         _holder__attr_372 = self._attr_372
         _holder__attr_373 = self._attr_373
-        linear_275 = torch.nn.functional.linear(
+        linear_275 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_94, weight=_holder__attr_372, bias=_holder__attr_373
         )
         mul_94 = _holder__attr_372 = _holder__attr_373 = None
@@ -3230,7 +3279,7 @@ class ExportedModule(nn.Module):
         mul_95 = None
         _holder__attr_374 = self._attr_374
         _holder__attr_375 = self._attr_375
-        linear_276 = torch.nn.functional.linear(
+        linear_276 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_64, weight=_holder__attr_374, bias=_holder__attr_375
         )
         tanh_64 = _holder__attr_374 = _holder__attr_375 = None
@@ -3239,7 +3288,7 @@ class ExportedModule(nn.Module):
         size_133 = None
         _holder__attr_376 = self._attr_376
         _holder__attr_377 = self._attr_377
-        layer_norm_182 = torch.nn.functional.layer_norm(
+        layer_norm_182 = ln_wrapper(
             input=linear_276,
             normalized_shape=getitem_4120,
             weight=_holder__attr_376,
@@ -3252,7 +3301,7 @@ class ExportedModule(nn.Module):
         size_134 = None
         _holder__attr_378 = self._attr_378
         _holder__attr_379 = self._attr_379
-        layer_norm_183 = torch.nn.functional.layer_norm(
+        layer_norm_183 = ln_wrapper(
             input=layer_norm_182,
             normalized_shape=getitem_4121,
             weight=_holder__attr_378,
@@ -3262,29 +3311,29 @@ class ExportedModule(nn.Module):
         layer_norm_182 = getitem_4121 = _holder__attr_378 = _holder__attr_379 = None
         _holder__attr_380 = self._attr_380
         _holder__attr_381 = self._attr_381
-        linear_277 = torch.nn.functional.linear(
+        linear_277 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_183, weight=_holder__attr_380, bias=_holder__attr_381
         )
         _holder__attr_380 = _holder__attr_381 = None
         _holder__attr_382 = self._attr_382
         _holder__attr_383 = self._attr_383
-        linear_278 = torch.nn.functional.linear(
+        linear_278 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_277, weight=_holder__attr_382, bias=_holder__attr_383
         )
         linear_277 = _holder__attr_382 = _holder__attr_383 = None
         mul_96 = torch.mul(input=layer_norm_183, other=linear_278)
         linear_278 = None
-        add_73 = torch.add(input=layer_norm_183, other=mul_96)
+        add_73 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_183, other=mul_96)
         layer_norm_183 = mul_96 = None
         _holder__attr_384 = self._attr_384
         _holder__attr_385 = self._attr_385
-        linear_279 = torch.nn.functional.linear(
+        linear_279 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_73, weight=_holder__attr_384, bias=_holder__attr_385
         )
         add_73 = _holder__attr_384 = _holder__attr_385 = None
         _holder__attr_386 = self._attr_386
         _holder__attr_387 = self._attr_387
-        layer_norm_184 = torch.nn.functional.layer_norm(
+        layer_norm_184 = ln_wrapper(
             input=linear_279,
             normalized_shape=(4096,),
             weight=_holder__attr_386,
@@ -3298,13 +3347,13 @@ class ExportedModule(nn.Module):
         linear_279 = sigmoid_87 = None
         _holder__attr_388 = self._attr_388
         _holder__attr_389 = self._attr_389
-        linear_280 = torch.nn.functional.linear(
+        linear_280 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_97, weight=_holder__attr_388, bias=_holder__attr_389
         )
         _holder__attr_388 = _holder__attr_389 = None
         _holder__attr_390 = self._attr_390
         _holder__attr_391 = self._attr_391
-        layer_norm_185 = torch.nn.functional.layer_norm(
+        layer_norm_185 = ln_wrapper(
             input=linear_280,
             normalized_shape=(2048,),
             weight=_holder__attr_390,
@@ -3318,15 +3367,15 @@ class ExportedModule(nn.Module):
         linear_280 = sigmoid_88 = None
         _holder__attr_392 = self._attr_392
         _holder__attr_393 = self._attr_393
-        linear_281 = torch.nn.functional.linear(
+        linear_281 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_98, weight=_holder__attr_392, bias=_holder__attr_393
         )
         mul_98 = _holder__attr_392 = _holder__attr_393 = None
-        add_74 = torch.add(input=mul_97, other=linear_281)
+        add_74 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_97, other=linear_281)
         mul_97 = linear_281 = None
         _holder__attr_394 = self._attr_394
         _holder__attr_395 = self._attr_395
-        layer_norm_186 = torch.nn.functional.layer_norm(
+        layer_norm_186 = ln_wrapper(
             input=add_74,
             normalized_shape=(4096,),
             weight=_holder__attr_394,
@@ -3340,7 +3389,7 @@ class ExportedModule(nn.Module):
         add_74 = sigmoid_89 = None
         _holder__attr_396 = self._attr_396
         _holder__attr_397 = self._attr_397
-        linear_282 = torch.nn.functional.linear(
+        linear_282 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_99, weight=_holder__attr_396, bias=_holder__attr_397
         )
         mul_99 = _holder__attr_396 = _holder__attr_397 = None
@@ -3351,14 +3400,14 @@ class ExportedModule(nn.Module):
             shape=[-1, 64, 160],
         )
         cat_39 = None
-        add_75 = torch.add(input=getitem_4119, other=reshape_675)
+        add_75 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_4119, other=reshape_675)
         getitem_4119 = reshape_675 = None
         size_135 = add_75.size()
         getitem_4122 = size_135[2:]
         size_135 = None
         _holder__attr_398 = self._attr_398
         _holder__attr_399 = self._attr_399
-        layer_norm_187 = torch.nn.functional.layer_norm(
+        layer_norm_187 = ln_wrapper(
             input=add_75,
             normalized_shape=getitem_4122,
             weight=_holder__attr_398,
@@ -3369,10 +3418,10 @@ class ExportedModule(nn.Module):
         cat_40 = torch.cat(tensors=[layer_norm_187, getitem_4093], dim=1)
         layer_norm_187 = getitem_4093 = None
         permute_91 = cat_40.permute([0, 2, 1])
-        contiguous_27 = permute_91.contiguous()
+        contiguous_27 = contiguous_wrapper(permute_91,sys._getframe().f_lineno)#.contiguous()
         _holder__attr_400 = self._attr_400
         _holder__attr_401 = self._attr_401
-        linear_283 = torch.nn.functional.linear(
+        linear_283 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_27, weight=_holder__attr_400, bias=_holder__attr_401
         )
         contiguous_27 = _holder__attr_400 = _holder__attr_401 = None
@@ -3396,13 +3445,13 @@ class ExportedModule(nn.Module):
         getitem_4124 = None
         _holder__attr_402 = self._attr_402
         _holder__attr_403 = self._attr_403
-        linear_284 = torch.nn.functional.linear(
+        linear_284 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_677, weight=_holder__attr_402, bias=_holder__attr_403
         )
         reshape_677 = _holder__attr_402 = _holder__attr_403 = None
         _holder__attr_404 = self._attr_404
         _holder__attr_405 = self._attr_405
-        layer_norm_188 = torch.nn.functional.layer_norm(
+        layer_norm_188 = ln_wrapper(
             input=linear_284,
             normalized_shape=(512,),
             weight=_holder__attr_404,
@@ -3416,7 +3465,7 @@ class ExportedModule(nn.Module):
         linear_284 = sigmoid_90 = None
         _holder__attr_406 = self._attr_406
         _holder__attr_407 = self._attr_407
-        linear_285 = torch.nn.functional.linear(
+        linear_285 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_100, weight=_holder__attr_406, bias=_holder__attr_407
         )
         mul_100 = _holder__attr_406 = _holder__attr_407 = None
@@ -3437,7 +3486,7 @@ class ExportedModule(nn.Module):
         mul_101 = None
         _holder__attr_408 = self._attr_408
         _holder__attr_409 = self._attr_409
-        linear_286 = torch.nn.functional.linear(
+        linear_286 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_65, weight=_holder__attr_408, bias=_holder__attr_409
         )
         tanh_65 = _holder__attr_408 = _holder__attr_409 = None
@@ -3446,7 +3495,7 @@ class ExportedModule(nn.Module):
         size_136 = None
         _holder__attr_410 = self._attr_410
         _holder__attr_411 = self._attr_411
-        layer_norm_189 = torch.nn.functional.layer_norm(
+        layer_norm_189 = ln_wrapper(
             input=linear_286,
             normalized_shape=getitem_4126,
             weight=_holder__attr_410,
@@ -3459,7 +3508,7 @@ class ExportedModule(nn.Module):
         size_137 = None
         _holder__attr_412 = self._attr_412
         _holder__attr_413 = self._attr_413
-        layer_norm_190 = torch.nn.functional.layer_norm(
+        layer_norm_190 = ln_wrapper(
             input=layer_norm_189,
             normalized_shape=getitem_4127,
             weight=_holder__attr_412,
@@ -3469,29 +3518,29 @@ class ExportedModule(nn.Module):
         layer_norm_189 = getitem_4127 = _holder__attr_412 = _holder__attr_413 = None
         _holder__attr_414 = self._attr_414
         _holder__attr_415 = self._attr_415
-        linear_287 = torch.nn.functional.linear(
+        linear_287 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_190, weight=_holder__attr_414, bias=_holder__attr_415
         )
         _holder__attr_414 = _holder__attr_415 = None
         _holder__attr_416 = self._attr_416
         _holder__attr_417 = self._attr_417
-        linear_288 = torch.nn.functional.linear(
+        linear_288 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_287, weight=_holder__attr_416, bias=_holder__attr_417
         )
         linear_287 = _holder__attr_416 = _holder__attr_417 = None
         mul_102 = torch.mul(input=layer_norm_190, other=linear_288)
         linear_288 = None
-        add_76 = torch.add(input=layer_norm_190, other=mul_102)
+        add_76 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_190, other=mul_102)
         layer_norm_190 = mul_102 = None
         _holder__attr_418 = self._attr_418
         _holder__attr_419 = self._attr_419
-        linear_289 = torch.nn.functional.linear(
+        linear_289 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_76, weight=_holder__attr_418, bias=_holder__attr_419
         )
         add_76 = _holder__attr_418 = _holder__attr_419 = None
         _holder__attr_420 = self._attr_420
         _holder__attr_421 = self._attr_421
-        layer_norm_191 = torch.nn.functional.layer_norm(
+        layer_norm_191 = ln_wrapper(
             input=linear_289,
             normalized_shape=(4096,),
             weight=_holder__attr_420,
@@ -3505,13 +3554,13 @@ class ExportedModule(nn.Module):
         linear_289 = sigmoid_91 = None
         _holder__attr_422 = self._attr_422
         _holder__attr_423 = self._attr_423
-        linear_290 = torch.nn.functional.linear(
+        linear_290 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_103, weight=_holder__attr_422, bias=_holder__attr_423
         )
         _holder__attr_422 = _holder__attr_423 = None
         _holder__attr_424 = self._attr_424
         _holder__attr_425 = self._attr_425
-        layer_norm_192 = torch.nn.functional.layer_norm(
+        layer_norm_192 = ln_wrapper(
             input=linear_290,
             normalized_shape=(2048,),
             weight=_holder__attr_424,
@@ -3525,15 +3574,15 @@ class ExportedModule(nn.Module):
         linear_290 = sigmoid_92 = None
         _holder__attr_426 = self._attr_426
         _holder__attr_427 = self._attr_427
-        linear_291 = torch.nn.functional.linear(
+        linear_291 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_104, weight=_holder__attr_426, bias=_holder__attr_427
         )
         mul_104 = _holder__attr_426 = _holder__attr_427 = None
-        add_77 = torch.add(input=mul_103, other=linear_291)
+        add_77 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_103, other=linear_291)
         mul_103 = linear_291 = None
         _holder__attr_428 = self._attr_428
         _holder__attr_429 = self._attr_429
-        layer_norm_193 = torch.nn.functional.layer_norm(
+        layer_norm_193 = ln_wrapper(
             input=add_77,
             normalized_shape=(4096,),
             weight=_holder__attr_428,
@@ -3547,7 +3596,7 @@ class ExportedModule(nn.Module):
         add_77 = sigmoid_93 = None
         _holder__attr_430 = self._attr_430
         _holder__attr_431 = self._attr_431
-        linear_292 = torch.nn.functional.linear(
+        linear_292 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_105, weight=_holder__attr_430, bias=_holder__attr_431
         )
         mul_105 = _holder__attr_430 = _holder__attr_431 = None
@@ -3558,14 +3607,14 @@ class ExportedModule(nn.Module):
             shape=[-1, 64, 160],
         )
         cat_42 = None
-        add_78 = torch.add(input=getitem_4125, other=reshape_679)
+        add_78 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_4125, other=reshape_679)
         getitem_4125 = reshape_679 = None
         size_138 = add_78.size()
         getitem_4128 = size_138[2:]
         size_138 = None
         _holder__attr_432 = self._attr_432
         _holder__attr_433 = self._attr_433
-        layer_norm_194 = torch.nn.functional.layer_norm(
+        layer_norm_194 = ln_wrapper(
             input=add_78,
             normalized_shape=getitem_4128,
             weight=_holder__attr_432,
@@ -3576,10 +3625,10 @@ class ExportedModule(nn.Module):
         cat_43 = torch.cat(tensors=[layer_norm_194, getitem_4094], dim=1)
         layer_norm_194 = getitem_4094 = None
         permute_94 = cat_43.permute([0, 2, 1])
-        contiguous_28 = permute_94.contiguous()
+        contiguous_28 = contiguous_wrapper(permute_94,sys._getframe().f_lineno)#.contiguous()
         _holder__attr_434 = self._attr_434
         _holder__attr_435 = self._attr_435
-        linear_293 = torch.nn.functional.linear(
+        linear_293 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_28, weight=_holder__attr_434, bias=_holder__attr_435
         )
         contiguous_28 = _holder__attr_434 = _holder__attr_435 = None
@@ -3603,13 +3652,13 @@ class ExportedModule(nn.Module):
         getitem_4130 = None
         _holder__attr_436 = self._attr_436
         _holder__attr_437 = self._attr_437
-        linear_294 = torch.nn.functional.linear(
+        linear_294 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_681, weight=_holder__attr_436, bias=_holder__attr_437
         )
         reshape_681 = _holder__attr_436 = _holder__attr_437 = None
         _holder__attr_438 = self._attr_438
         _holder__attr_439 = self._attr_439
-        layer_norm_195 = torch.nn.functional.layer_norm(
+        layer_norm_195 = ln_wrapper(
             input=linear_294,
             normalized_shape=(512,),
             weight=_holder__attr_438,
@@ -3623,7 +3672,7 @@ class ExportedModule(nn.Module):
         linear_294 = sigmoid_94 = None
         _holder__attr_440 = self._attr_440
         _holder__attr_441 = self._attr_441
-        linear_295 = torch.nn.functional.linear(
+        linear_295 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_106, weight=_holder__attr_440, bias=_holder__attr_441
         )
         mul_106 = _holder__attr_440 = _holder__attr_441 = None
@@ -3644,7 +3693,7 @@ class ExportedModule(nn.Module):
         mul_107 = None
         _holder__attr_442 = self._attr_442
         _holder__attr_443 = self._attr_443
-        linear_296 = torch.nn.functional.linear(
+        linear_296 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_66, weight=_holder__attr_442, bias=_holder__attr_443
         )
         tanh_66 = _holder__attr_442 = _holder__attr_443 = None
@@ -3653,7 +3702,7 @@ class ExportedModule(nn.Module):
         size_139 = None
         _holder__attr_444 = self._attr_444
         _holder__attr_445 = self._attr_445
-        layer_norm_196 = torch.nn.functional.layer_norm(
+        layer_norm_196 = ln_wrapper(
             input=linear_296,
             normalized_shape=getitem_4132,
             weight=_holder__attr_444,
@@ -3666,7 +3715,7 @@ class ExportedModule(nn.Module):
         size_140 = None
         _holder__attr_446 = self._attr_446
         _holder__attr_447 = self._attr_447
-        layer_norm_197 = torch.nn.functional.layer_norm(
+        layer_norm_197 = ln_wrapper(
             input=layer_norm_196,
             normalized_shape=getitem_4133,
             weight=_holder__attr_446,
@@ -3676,29 +3725,29 @@ class ExportedModule(nn.Module):
         layer_norm_196 = getitem_4133 = _holder__attr_446 = _holder__attr_447 = None
         _holder__attr_448 = self._attr_448
         _holder__attr_449 = self._attr_449
-        linear_297 = torch.nn.functional.linear(
+        linear_297 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_197, weight=_holder__attr_448, bias=_holder__attr_449
         )
         _holder__attr_448 = _holder__attr_449 = None
         _holder__attr_450 = self._attr_450
         _holder__attr_451 = self._attr_451
-        linear_298 = torch.nn.functional.linear(
+        linear_298 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_297, weight=_holder__attr_450, bias=_holder__attr_451
         )
         linear_297 = _holder__attr_450 = _holder__attr_451 = None
         mul_108 = torch.mul(input=layer_norm_197, other=linear_298)
         linear_298 = None
-        add_79 = torch.add(input=layer_norm_197, other=mul_108)
+        add_79 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_197, other=mul_108)
         layer_norm_197 = mul_108 = None
         _holder__attr_452 = self._attr_452
         _holder__attr_453 = self._attr_453
-        linear_299 = torch.nn.functional.linear(
+        linear_299 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_79, weight=_holder__attr_452, bias=_holder__attr_453
         )
         add_79 = _holder__attr_452 = _holder__attr_453 = None
         _holder__attr_454 = self._attr_454
         _holder__attr_455 = self._attr_455
-        layer_norm_198 = torch.nn.functional.layer_norm(
+        layer_norm_198 = ln_wrapper(
             input=linear_299,
             normalized_shape=(4096,),
             weight=_holder__attr_454,
@@ -3712,13 +3761,13 @@ class ExportedModule(nn.Module):
         linear_299 = sigmoid_95 = None
         _holder__attr_456 = self._attr_456
         _holder__attr_457 = self._attr_457
-        linear_300 = torch.nn.functional.linear(
+        linear_300 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_109, weight=_holder__attr_456, bias=_holder__attr_457
         )
         _holder__attr_456 = _holder__attr_457 = None
         _holder__attr_458 = self._attr_458
         _holder__attr_459 = self._attr_459
-        layer_norm_199 = torch.nn.functional.layer_norm(
+        layer_norm_199 = ln_wrapper(
             input=linear_300,
             normalized_shape=(2048,),
             weight=_holder__attr_458,
@@ -3732,15 +3781,15 @@ class ExportedModule(nn.Module):
         linear_300 = sigmoid_96 = None
         _holder__attr_460 = self._attr_460
         _holder__attr_461 = self._attr_461
-        linear_301 = torch.nn.functional.linear(
+        linear_301 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_110, weight=_holder__attr_460, bias=_holder__attr_461
         )
         mul_110 = _holder__attr_460 = _holder__attr_461 = None
-        add_80 = torch.add(input=mul_109, other=linear_301)
+        add_80 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_109, other=linear_301)
         mul_109 = linear_301 = None
         _holder__attr_462 = self._attr_462
         _holder__attr_463 = self._attr_463
-        layer_norm_200 = torch.nn.functional.layer_norm(
+        layer_norm_200 = ln_wrapper(
             input=add_80,
             normalized_shape=(4096,),
             weight=_holder__attr_462,
@@ -3754,7 +3803,7 @@ class ExportedModule(nn.Module):
         add_80 = sigmoid_97 = None
         _holder__attr_464 = self._attr_464
         _holder__attr_465 = self._attr_465
-        linear_302 = torch.nn.functional.linear(
+        linear_302 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_111, weight=_holder__attr_464, bias=_holder__attr_465
         )
         mul_111 = _holder__attr_464 = _holder__attr_465 = None
@@ -3765,14 +3814,14 @@ class ExportedModule(nn.Module):
             shape=[-1, 64, 160],
         )
         cat_45 = None
-        add_81 = torch.add(input=getitem_4131, other=reshape_683)
+        add_81 = add_wrapper(line_number=sys._getframe().f_lineno,input=getitem_4131, other=reshape_683)
         getitem_4131 = reshape_683 = None
         size_141 = add_81.size()
         getitem_4134 = size_141[2:]
         size_141 = None
         _holder__attr_466 = self._attr_466
         _holder__attr_467 = self._attr_467
-        layer_norm_201 = torch.nn.functional.layer_norm(
+        layer_norm_201 = ln_wrapper(
             input=add_81,
             normalized_shape=getitem_4134,
             weight=_holder__attr_466,
@@ -3786,7 +3835,7 @@ class ExportedModule(nn.Module):
         contiguous_29 = permute_97.contiguous()
         _holder__attr_468 = self._attr_468
         _holder__attr_469 = self._attr_469
-        linear_303 = torch.nn.functional.linear(
+        linear_303 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=contiguous_29, weight=_holder__attr_468, bias=_holder__attr_469
         )
         contiguous_29 = _holder__attr_468 = _holder__attr_469 = None
@@ -3799,13 +3848,13 @@ class ExportedModule(nn.Module):
         permute_99 = None
         _holder__attr_470 = self._attr_470
         _holder__attr_471 = self._attr_471
-        linear_304 = torch.nn.functional.linear(
+        linear_304 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=reshape_684, weight=_holder__attr_470, bias=_holder__attr_471
         )
         reshape_684 = _holder__attr_470 = _holder__attr_471 = None
         _holder__attr_472 = self._attr_472
         _holder__attr_473 = self._attr_473
-        layer_norm_202 = torch.nn.functional.layer_norm(
+        layer_norm_202 = ln_wrapper(
             input=linear_304,
             normalized_shape=(512,),
             weight=_holder__attr_472,
@@ -3819,7 +3868,7 @@ class ExportedModule(nn.Module):
         linear_304 = sigmoid_98 = None
         _holder__attr_474 = self._attr_474
         _holder__attr_475 = self._attr_475
-        linear_305 = torch.nn.functional.linear(
+        linear_305 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_112, weight=_holder__attr_474, bias=_holder__attr_475
         )
         mul_112 = _holder__attr_474 = _holder__attr_475 = None
@@ -3840,7 +3889,7 @@ class ExportedModule(nn.Module):
         mul_113 = None
         _holder__attr_476 = self._attr_476
         _holder__attr_477 = self._attr_477
-        linear_306 = torch.nn.functional.linear(
+        linear_306 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=tanh_67, weight=_holder__attr_476, bias=_holder__attr_477
         )
         tanh_67 = _holder__attr_476 = _holder__attr_477 = None
@@ -3849,7 +3898,7 @@ class ExportedModule(nn.Module):
         size_142 = None
         _holder__attr_478 = self._attr_478
         _holder__attr_479 = self._attr_479
-        layer_norm_203 = torch.nn.functional.layer_norm(
+        layer_norm_203 = ln_wrapper(
             input=linear_306,
             normalized_shape=getitem_4135,
             weight=_holder__attr_478,
@@ -3862,7 +3911,7 @@ class ExportedModule(nn.Module):
         size_143 = None
         _holder__attr_480 = self._attr_480
         _holder__attr_481 = self._attr_481
-        layer_norm_204 = torch.nn.functional.layer_norm(
+        layer_norm_204 = ln_wrapper(
             input=layer_norm_203,
             normalized_shape=getitem_4136,
             weight=_holder__attr_480,
@@ -3872,29 +3921,29 @@ class ExportedModule(nn.Module):
         layer_norm_203 = getitem_4136 = _holder__attr_480 = _holder__attr_481 = None
         _holder__attr_482 = self._attr_482
         _holder__attr_483 = self._attr_483
-        linear_307 = torch.nn.functional.linear(
+        linear_307 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=layer_norm_204, weight=_holder__attr_482, bias=_holder__attr_483
         )
         _holder__attr_482 = _holder__attr_483 = None
         _holder__attr_484 = self._attr_484
         _holder__attr_485 = self._attr_485
-        linear_308 = torch.nn.functional.linear(
+        linear_308 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=linear_307, weight=_holder__attr_484, bias=_holder__attr_485
         )
         linear_307 = _holder__attr_484 = _holder__attr_485 = None
         mul_114 = torch.mul(input=layer_norm_204, other=linear_308)
         linear_308 = None
-        add_82 = torch.add(input=layer_norm_204, other=mul_114)
+        add_82 = add_wrapper(line_number=sys._getframe().f_lineno,input=layer_norm_204, other=mul_114)
         layer_norm_204 = mul_114 = None
         _holder__attr_486 = self._attr_486
         _holder__attr_487 = self._attr_487
-        linear_309 = torch.nn.functional.linear(
+        linear_309 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=add_82, weight=_holder__attr_486, bias=_holder__attr_487
         )
         add_82 = _holder__attr_486 = _holder__attr_487 = None
         _holder__attr_488 = self._attr_488
         _holder__attr_489 = self._attr_489
-        layer_norm_205 = torch.nn.functional.layer_norm(
+        layer_norm_205 = ln_wrapper(
             input=linear_309,
             normalized_shape=(4096,),
             weight=_holder__attr_488,
@@ -3908,13 +3957,13 @@ class ExportedModule(nn.Module):
         linear_309 = sigmoid_99 = None
         _holder__attr_490 = self._attr_490
         _holder__attr_491 = self._attr_491
-        linear_310 = torch.nn.functional.linear(
+        linear_310 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_115, weight=_holder__attr_490, bias=_holder__attr_491
         )
         _holder__attr_490 = _holder__attr_491 = None
         _holder__attr_492 = self._attr_492
         _holder__attr_493 = self._attr_493
-        layer_norm_206 = torch.nn.functional.layer_norm(
+        layer_norm_206 = ln_wrapper(
             input=linear_310,
             normalized_shape=(2048,),
             weight=_holder__attr_492,
@@ -3928,15 +3977,15 @@ class ExportedModule(nn.Module):
         linear_310 = sigmoid_100 = None
         _holder__attr_494 = self._attr_494
         _holder__attr_495 = self._attr_495
-        linear_311 = torch.nn.functional.linear(
+        linear_311 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_116, weight=_holder__attr_494, bias=_holder__attr_495
         )
         mul_116 = _holder__attr_494 = _holder__attr_495 = None
-        add_83 = torch.add(input=mul_115, other=linear_311)
+        add_83 = add_wrapper(line_number=sys._getframe().f_lineno,input=mul_115, other=linear_311)
         mul_115 = linear_311 = None
         _holder__attr_496 = self._attr_496
         _holder__attr_497 = self._attr_497
-        layer_norm_207 = torch.nn.functional.layer_norm(
+        layer_norm_207 = ln_wrapper(
             input=add_83,
             normalized_shape=(4096,),
             weight=_holder__attr_496,
@@ -3950,7 +3999,7 @@ class ExportedModule(nn.Module):
         add_83 = sigmoid_101 = None
         _holder__attr_498 = self._attr_498
         _holder__attr_499 = self._attr_499
-        linear_312 = torch.nn.functional.linear(
+        linear_312 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=mul_117, weight=_holder__attr_498, bias=_holder__attr_499
         )
         mul_117 = _holder__attr_498 = _holder__attr_499 = None
@@ -3958,7 +4007,7 @@ class ExportedModule(nn.Module):
         linear_312 = None
         _holder__attr_500 = self._attr_500
         _holder__attr_501 = self._attr_501
-        linear_313 = torch.nn.functional.linear(
+        linear_313 = linear_wrapper(line_number=sys._getframe().f_lineno,
             input=relu_1, weight=_holder__attr_500, bias=_holder__attr_501
         )
         relu_1 = _holder__attr_500 = _holder__attr_501 = None
@@ -3989,7 +4038,7 @@ def main():
     ]
     dense_over_arch_flops = 1420.28 * 1e6
     t = benchmark_torch_function(
-        100,
+        2,
         lambda: module(*inputs),
     )
     print(
