@@ -39,20 +39,18 @@ def run_bw(shape):
 
     torch.cuda.synchronize()
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        for _ in range(10):
+        for _ in range(20):
                 run()
                 torch.cuda.synchronize()
-        for _ in range(10):
+        for _ in range(20):
                 run_apex()
                 torch.cuda.synchronize()
     prof.export_chrome_trace("trace_temp.json")
-
-    print("torch time:")
-    print(parse_trace.parse_trace_json(
+    print(input_shape)
+    print("torch fowward,", parse_trace.parse_trace_json(
          "trace_temp.json", 
          "at::native::(anonymous namespace)::vectorized_layer_norm_kernel"))
-    print("apex time:")
-    print(parse_trace.parse_trace_json(
+    print("apex fowward,",parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void cuApplyLayerNorm<"))
 shapes = (

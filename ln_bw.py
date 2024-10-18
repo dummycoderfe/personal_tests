@@ -5,6 +5,7 @@ from torch.profiler import profile, record_function, ProfilerActivity
 from apex.normalization import FusedLayerNorm
 import parse_trace
 import sys
+import ck_ln
 class LayerNormModel(nn.Module):
     def __init__(self, num_features):
         super(LayerNormModel, self).__init__()
@@ -22,7 +23,7 @@ class LayerNormModelApex(nn.Module):
         return self.layer_norm(x)
 
 def run_bw(shape):
-    input_shape, norm_shape = shape
+    input_shape, _, norm_shape,_,_ = shape
     model = LayerNormModel(norm_shape).cuda().to(torch.bfloat16)
     model2 = LayerNormModelApex(norm_shape).cuda().to(torch.bfloat16)
     input_tensor = torch.randn(*input_shape, requires_grad=True, device="cuda").to(torch.bfloat16)
@@ -30,13 +31,11 @@ def run_bw(shape):
         output = model(input_tensor)
         loss = output.max()  
         loss.backward() 
-        print(loss) 
 
     def run_apex():
         output2 = model2(input_tensor)
         loss2 = output2.max() 
         loss2.backward() 
-        print(loss2) 
 
     #warmup
     for _ in range(5):
@@ -45,27 +44,35 @@ def run_bw(shape):
 
     torch.cuda.synchronize()
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        for _ in range(10):
+        for _ in range(20):
                 run()
                 torch.cuda.synchronize()
-        for _ in range(10):
+        for _ in range(20):
                 run_apex()
                 torch.cuda.synchronize()
     prof.export_chrome_trace("trace_temp.json")
-
-    print("torch time:")
-    print("gammabeta_grad,", parse_trace.parse_trace_json(
+    s_mul = 1
+    norm_mul = 1
+    for x in norm_shape:
+        norm_mul *= x
+    for x in input_shape:
+        s_mul *= x
+    ck_dgrad = ck_ln.run('layernorm_bwd_data', s_mul / norm_mul, norm_mul)
+    ck_wgrad = ck_ln.run('layernorm_bwd_gamma_beta', s_mul / norm_mul, norm_mul)
+    print("shape,", input_shape, norm_shape)
+    print("ck_time input_grad,", ck_dgrad)
+    print("ck_time gammabeta_grad,", ck_wgrad)
+    print("torch gammabeta_grad,", parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void at::native::(anonymous namespace)::cuComputePartGradGammaBeta"))
-    print("input_grad,", parse_trace.parse_trace_json(
+    print("torch input_grad,", parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void at::native::(anonymous namespace)::cuComputeGradInput",
          "void at::native::(anonymous namespace)::layer_norm_grad_input_kernel"))
-    print("apex time:")
-    print("gammabeta_grad,", parse_trace.parse_trace_json(
+    print("apex gammabeta_grad,", parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void cuComputePartGradGammaBeta<"))
-    print("input_grad,", parse_trace.parse_trace_json(
+    print("apex input_grad,", parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void cuComputeGradInput<"))
     
