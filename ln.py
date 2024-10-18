@@ -1,31 +1,53 @@
 import torch
 import torch.nn as nn
 import apex
+from torch.profiler import profile, record_function, ProfilerActivity
 from apex.normalization import FusedLayerNorm
-# 定义LayerNorm层
 class LayerNormModel(nn.Module):
     def __init__(self, num_features):
         super(LayerNormModel, self).__init__()
         self.layer_norm1 = nn.LayerNorm(num_features)
-        self.layer_norm2 = nn.LayerNorm(num_features)
 
     def forward(self, x):
-        return self.layer_norm1(self.layer_norm2(x))
+        return self.layer_norm1(x)
+    
+class LayerNormModelApex(nn.Module):
+    def __init__(self, num_features):
+        super(LayerNormModelApex, self).__init__()
+        self.layer_norm = apex.normalization.FusedLayerNorm(num_features)
 
-# 创建一个具有64个特征的LayerNorm层
-model = LayerNormModel(64)
+    def forward(self, x):
+        return self.layer_norm(x)
+    
+
+model = LayerNormModel([128]).cuda().to(torch.bfloat16)
+model2 = LayerNormModelApex([128]).cuda().to(torch.bfloat16)
 model.cuda()
-# 创建一个具有适当shape的输入张量
-# 假设我们有一个batch大小为4096，每个样本有200个特征，每个特征有64个元素
+model2.cuda()
+input_tensor = torch.randn(2048, 130, 128, requires_grad=True).cuda().to(torch.bfloat16)
+def run():
+    output = model(input_tensor)
+    loss = output.max()  
+    loss.backward() 
+    print(loss) 
 
-input_tensor = torch.randn(4096, 200, 64).cuda()
+def run_apex():
+    output2 = model2(input_tensor)
+    loss2 = output2.max() 
+    loss2.backward() 
+    print(loss2) 
 
-# 前向传播
-output = model(input_tensor)
+#warmup
+for _ in range(5):
+    run()
+    run_apex()
 
-# 反向传播（假设我们有一些损失函数和目标）
-loss = output.mean()  # 只是一个示例损失函数
-loss.backward()  # 计算梯度
-
-# 打印输出以验证
-print(loss)  # 应该与输入形状相同
+torch.cuda.synchronize()
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+   for _ in range(10):
+        run()
+        torch.cuda.synchronize()
+   for _ in range(10):
+        run_apex()
+        torch.cuda.synchronize()
+prof.export_chrome_trace("trace_ln.json")
