@@ -60,8 +60,8 @@ def run_bw(shape):
     ck_dgrad = ck_ln.run('layernorm_bwd_data', s_mul / norm_mul, norm_mul)
     ck_wgrad = ck_ln.run('layernorm_bwd_gamma_beta', s_mul / norm_mul, norm_mul)
     print("shape,", input_shape, norm_shape)
-    print("ck_time input_grad,", ck_dgrad)
-    print("ck_time gammabeta_grad,", ck_wgrad)
+    print("ck_time input_grad,", ck_dgrad * 1000)
+    print("ck_time gammabeta_grad,", ck_wgrad * 1000)
     print("torch gammabeta_grad,", parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void at::native::(anonymous namespace)::cuComputePartGradGammaBeta"))
