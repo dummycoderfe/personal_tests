@@ -65,7 +65,7 @@ def run_fw(shape):
     for x in input_shape:
         s_mul *= x
     ck_time = ck_cmd.run('layernorm_fwd', s_mul / norm_mul, norm_mul)
-    v[2] = ck_time
+    v[2] = ck_time * 1000
     v[3] = apex_time
     v[4] = torch_time
     print(','.join([str(i) for i in v]))
