@@ -5,7 +5,8 @@ from torch.profiler import profile, record_function, ProfilerActivity
 from apex.normalization import FusedLayerNorm
 import parse_trace
 import sys
-import ck_ln
+import ck_cmd
+run_ck = False
 class LayerNormModel(nn.Module):
     def __init__(self, num_features):
         super(LayerNormModel, self).__init__()
@@ -24,32 +25,29 @@ class LayerNormModelApex(nn.Module):
 
 def run_bw(shape):
     input_shape, _, norm_shape,_,_ = shape
+    v = ['' for _ in range(6)]
+    v[0] = 'x'.join([str(v) for v in input_shape])
+    v[1] = 'x'.join([str(v) for v in norm_shape])
     model = LayerNormModel(norm_shape).cuda().to(torch.bfloat16)
     model2 = LayerNormModelApex(norm_shape).cuda().to(torch.bfloat16)
     input_tensor = torch.randn(*input_shape, requires_grad=True, device="cuda").to(torch.bfloat16)
+    input_tensor1 = torch.randn(*input_shape, requires_grad=True, device="cuda").to(torch.bfloat16)
     def run():
         output = model(input_tensor)
-        loss = output.max()  
+        output2 = model2(input_tensor1)
+        loss = output.max()  + output2.max()
         loss.backward() 
 
-    def run_apex():
-        output2 = model2(input_tensor)
-        loss2 = output2.max() 
-        loss2.backward() 
 
     #warmup
     for _ in range(5):
         run()
-        run_apex()
 
     torch.cuda.synchronize()
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        for _ in range(20):
-                run()
-                torch.cuda.synchronize()
-        for _ in range(20):
-                run_apex()
-                torch.cuda.synchronize()
+        for _ in range(30):
+            run()
+        torch.cuda.synchronize()
     prof.export_chrome_trace("trace_temp.json")
     s_mul = 1
     norm_mul = 1
@@ -57,25 +55,33 @@ def run_bw(shape):
         norm_mul *= x
     for x in input_shape:
         s_mul *= x
-    ck_dgrad = ck_ln.run('layernorm_bwd_data', s_mul / norm_mul, norm_mul)
-    ck_wgrad = ck_ln.run('layernorm_bwd_gamma_beta', s_mul / norm_mul, norm_mul)
-    print("shape,", input_shape, norm_shape)
-    print("ck_time input_grad,", ck_dgrad * 1000)
-    print("ck_time gammabeta_grad,", ck_wgrad * 1000)
-    print("torch gammabeta_grad,", parse_trace.parse_trace_json(
+    if run_ck:
+        ck_dgrad = ck_cmd.run('layernorm_bwd_data', s_mul / norm_mul, norm_mul)
+        ck_wgrad = ck_cmd.run('layernorm_bwd_gamma_beta', s_mul / norm_mul, norm_mul)
+    torch_wgrad = parse_trace.parse_trace_json(
          "trace_temp.json", 
-         "void at::native::(anonymous namespace)::cuComputePartGradGammaBeta"))
-    print("torch input_grad,", parse_trace.parse_trace_json(
+         "void at::native::(anonymous namespace)::cuComputePartGradGammaBeta") + \
+          parse_trace.parse_trace_json(
+         "trace_temp.json", 
+         "void at::native::(anonymous namespace)::cuComputeGradGammaBeta")
+    torch_dgrad = parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void at::native::(anonymous namespace)::cuComputeGradInput",
-         "void at::native::(anonymous namespace)::layer_norm_grad_input_kernel"))
-    print("apex gammabeta_grad,", parse_trace.parse_trace_json(
+         "void at::native::(anonymous namespace)::layer_norm_grad_input_kernel")
+    apex_wgrad = parse_trace.parse_trace_json(
          "trace_temp.json", 
-         "void cuComputePartGradGammaBeta<"))
-    print("apex input_grad,", parse_trace.parse_trace_json(
+         "void cuComputePartGradGammaBeta<") + parse_trace.parse_trace_json(
          "trace_temp.json", 
-         "void cuComputeGradInput<"))
+         "void cuComputeGradGammaBeta<")
+    apex_dgrad = parse_trace.parse_trace_json(
+         "trace_temp.json", 
+         "void cuComputeGradInput<")
     
+    v[2] = apex_dgrad
+    v[3] = torch_dgrad
+    v[4] = apex_wgrad
+    v[5] = torch_wgrad
+    print(','.join([str(i) for i in v]))
 shapes = (
 [[2048, 130, 128],[], [128], [],[]], 
 [[2048, 152, 256],[], [152, 256], [],[]],
@@ -143,6 +149,8 @@ shapes = (
 [[2048,512],[],[512],[512],[]],
 
 )
+
+print("shape, norm_shape, apex_dgrad, torch_dgrad, apex_wgrad, torch_wgrad")
 for s in shapes:
      run_bw(s)
 

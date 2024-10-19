@@ -6,7 +6,7 @@ from apex.normalization import FusedLayerNorm
 import parse_trace
 import sys
 import ck_cmd
-
+run_ck = False
 class LayerNormModel(nn.Module):
     def __init__(self, num_features):
         super(LayerNormModel, self).__init__()
@@ -31,25 +31,21 @@ def run_fw(shape):
     model = LayerNormModel(norm_shape).eval().cuda().to(torch.bfloat16)
     model2 = LayerNormModelApex(norm_shape).eval().cuda().to(torch.bfloat16)
     input_tensor = torch.randn(*input_shape, device="cuda").to(torch.bfloat16)
+    input_tensor2 = torch.randn(*input_shape, device="cuda").to(torch.bfloat16)
     def run():
-        return model(input_tensor)
-
-    def run_apex():
-        return model2(input_tensor)
+        v1 = model(input_tensor)
+        v2 = model2(input_tensor)
+        return v1 + v2
 
     #warmup
     for _ in range(5):
         run()
-        run_apex()
 
     torch.cuda.synchronize()
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        for _ in range(20):
-                run()
-                torch.cuda.synchronize()
-        for _ in range(20):
-                run_apex()
-                torch.cuda.synchronize()
+        for _ in range(30):
+            run()
+        torch.cuda.synchronize()
     prof.export_chrome_trace("trace_temp.json")
     torch_time = parse_trace.parse_trace_json(
          "trace_temp.json", 
@@ -64,7 +60,8 @@ def run_fw(shape):
         norm_mul *= x
     for x in input_shape:
         s_mul *= x
-    ck_time = ck_cmd.run('layernorm_fwd', s_mul / norm_mul, norm_mul)
+    if run_ck:
+        ck_time = ck_cmd.run('layernorm_fwd', s_mul / norm_mul, norm_mul)
     v[2] = ck_time * 1000
     v[3] = apex_time
     v[4] = torch_time

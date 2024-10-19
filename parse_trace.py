@@ -17,5 +17,5 @@ def parse_trace_json(trace_file, search_str, search_str_or = "nothing couldbeNon
     if durations:
         average_dur = sum(durations) / len(durations)
     else:
-        average_dur = -1
+        average_dur = 0
     return average_dur
