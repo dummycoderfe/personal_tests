@@ -8,13 +8,6 @@ import sys
 
 def benchmark_torch_function(iters: int, function, *args) -> float:
     function(*args)
-    # torch.cuda.synchronize()
-    # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-    #     function(*args)
-    #     torch.cuda.synchronize()
-    #     function(*args)
-    #     torch.cuda.synchronize()
-    # prof.export_chrome_trace("trace.json")
     torch.cuda.synchronize()
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
@@ -23,6 +16,12 @@ def benchmark_torch_function(iters: int, function, *args) -> float:
         function(*args)
     end_event.record()
     torch.cuda.synchronize()
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+        function(*args)
+        torch.cuda.synchronize()
+        function(*args)
+        torch.cuda.synchronize()
+    prof.export_chrome_trace("trace.json")
     return (start_event.elapsed_time(end_event) * 1.0e-3) / iters
 
 def ln_wrapper(input, normalized_shape, weight, bias=None, eps=1e-05, line_number=""):
@@ -35,27 +34,27 @@ def ln_wrapper(input, normalized_shape, weight, bias=None, eps=1e-05, line_numbe
             eps=eps,
         )
 def mul_wrap(input, other, line_number=""):
-    print(f"mul line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    # print(f"mul line {line_number} shape:{input.shape}, strides:{input.stride()}")
     return torch.mul(input=input, other=other)
 
 def reshape_wrap(input, shape, line_number=""):
-    print(f"reshape line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    # print(f"reshape line {line_number} shape:{input.shape}, strides:{input.stride()}")
     return torch.reshape(input=input, shape = shape)
 
 def add_wrapper(input, other, line_number=""):
-    print(f"add line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    # print(f"add line {line_number} shape:{input.shape}, strides:{input.stride()}")
     return torch.add(
             input=input,
             other=other
         )
 def linear_wrapper(input, weight, bias=None, line_number=""):
-    print(f"linear line {line_number} shape:{input.shape}, strides:{input.stride()}")
+    # print(f"linear line {line_number} shape:{input.shape}, strides:{input.stride()}")
     
     return torch.nn.functional.linear(input=input, weight=weight, bias=bias)
     
 
 def contiguous_wrapper(in0, line_number=""):
-    print(f"contigous line {line_number} shape: {in0.shape}  strides: {in0.stride()}")
+    # print(f"contigous line {line_number} shape: {in0.shape}  strides: {in0.stride()}")
     return in0.contiguous()
     
 class ExportedModule(nn.Module):
@@ -2258,121 +2257,117 @@ class ExportedModule(nn.Module):
             input=cat_24, nan=0.0, posinf=65504.0, neginf=-65504.0
         )
         cat_24 = None
-        torch.cuda.synchronize()
-        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-            clamp_59 = torch.clamp(input=nan_to_num_59, min=-100.1, max=100.1)
-            nan_to_num_59 = None
-            _holder__attr_228 = self._attr_228
-            matmul_17 = torch.matmul(input=clamp_59, other=_holder__attr_228)
-            clamp_59 = _holder__attr_228 = None
-            _holder__attr_229 = self._attr_229
-            add_60 = add_wrapper(line_number=sys._getframe().f_lineno,input=_holder__attr_229, other=matmul_17)
-            _holder__attr_229 = matmul_17 = None
-            permute_105 = add_60.permute([1, 0, 2])
-            add_60 = None
-            reshape = torch.reshape(
-                input=permute_105,
-                shape=(-1, 23040),
-            )
-            permute_105 = None
-            cat_25 = torch.cat(
-                tensors=(
-                    getitem_3708,
-                    getitem_3683,
-                    getitem_3707,
-                    getitem_3691,
-                    getitem_3706,
-                    getitem_3690,
-                    getitem_3705,
-                    getitem_3684,
-                    getitem_3696,
-                    getitem_3695,
-                    getitem_3704,
-                    getitem_3685,
-                    getitem_3697,
-                    getitem_3694,
-                    getitem_3698,
-                    getitem_3693,
-                    getitem_3703,
-                    getitem_3692,
-                    getitem_3699,
-                    getitem_3689,
-                    getitem_3702,
-                    getitem_3686,
-                    getitem_3700,
-                    getitem_3687,
-                    getitem_3701,
-                    getitem_3688,
-                    linear_314,
-                    layer_norm_120,
-                    layer_norm_128,
-                    layer_norm_124,
-                    layer_norm_117,
-                    layer_norm_111,
-                    layer_norm_109,
-                    layer_norm_116,
-                    layer_norm_132,
-                    layer_norm_126,
-                    layer_norm_127,
-                    layer_norm_107,
-                    layer_norm_113,
-                    layer_norm_110,
-                    layer_norm_133,
-                    layer_norm_118,
-                    layer_norm_112,
-                    layer_norm_131,
-                    layer_norm_122,
-                    layer_norm_125,
-                    layer_norm_121,
-                    layer_norm_119,
-                    layer_norm_130,
-                    layer_norm_108,
-                    layer_norm_129,
-                    layer_norm_106,
-                    layer_norm_114,
-                    layer_norm_134,
-                    layer_norm_123,
-                    layer_norm_115,
-                    reshape,
-                ),
-                dim=1,
-            )
-            getitem_3708 = getitem_3683 = getitem_3707 = getitem_3691 = getitem_3706 = (
-                getitem_3690
-            ) = getitem_3705 = getitem_3684 = getitem_3696 = getitem_3695 = getitem_3704 = (
-                getitem_3685
-            ) = getitem_3697 = getitem_3694 = getitem_3698 = getitem_3693 = getitem_3703 = (
-                getitem_3692
-            ) = getitem_3699 = getitem_3689 = getitem_3702 = getitem_3686 = getitem_3700 = (
-                getitem_3687
-            ) = getitem_3701 = getitem_3688 = linear_314 = layer_norm_120 = (
-                layer_norm_128
-            ) = layer_norm_124 = layer_norm_117 = layer_norm_111 = layer_norm_109 = (
-                layer_norm_116
-            ) = layer_norm_132 = layer_norm_126 = layer_norm_127 = layer_norm_107 = (
-                layer_norm_113
-            ) = layer_norm_110 = layer_norm_133 = layer_norm_118 = layer_norm_112 = (
-                layer_norm_131
-            ) = layer_norm_122 = layer_norm_125 = layer_norm_121 = layer_norm_119 = (
-                layer_norm_130
-            ) = layer_norm_108 = layer_norm_129 = layer_norm_106 = layer_norm_114 = (
-                layer_norm_134
-            ) = layer_norm_123 = layer_norm_115 = reshape = None
-            reshape_655 = torch.reshape(
-                input=cat_25,
-                shape=[-1, 1219, 160],
-            )
-            cat_25 = None
-            permute_74 = reshape_655.permute([0, 2, 1])
-            contiguous_21 = contiguous_wrapper(permute_74,sys._getframe().f_lineno)#.contiguous()
-            _holder__attr_230 = self._attr_230
-            _holder__attr_231 = self._attr_231
-            linear_315 = linear_wrapper(line_number=sys._getframe().f_lineno,
-                input=contiguous_21, weight=_holder__attr_230, bias=_holder__attr_231
-            )
-            
-            torch.cuda.synchronize()
-        prof.export_chrome_trace(f"trace{time.time()}.json")
+        clamp_59 = torch.clamp(input=nan_to_num_59, min=-100.1, max=100.1)
+        nan_to_num_59 = None
+        _holder__attr_228 = self._attr_228
+        matmul_17 = torch.matmul(input=clamp_59, other=_holder__attr_228)
+        clamp_59 = _holder__attr_228 = None
+        _holder__attr_229 = self._attr_229
+        add_60 = add_wrapper(line_number=sys._getframe().f_lineno,input=_holder__attr_229, other=matmul_17)
+        _holder__attr_229 = matmul_17 = None
+        permute_105 = add_60.permute([1, 0, 2])
+        add_60 = None
+        reshape = torch.reshape(
+            input=permute_105,
+            shape=(-1, 23040),
+        )
+        permute_105 = None
+        cat_25 = torch.cat(
+            tensors=(
+                getitem_3708,
+                getitem_3683,
+                getitem_3707,
+                getitem_3691,
+                getitem_3706,
+                getitem_3690,
+                getitem_3705,
+                getitem_3684,
+                getitem_3696,
+                getitem_3695,
+                getitem_3704,
+                getitem_3685,
+                getitem_3697,
+                getitem_3694,
+                getitem_3698,
+                getitem_3693,
+                getitem_3703,
+                getitem_3692,
+                getitem_3699,
+                getitem_3689,
+                getitem_3702,
+                getitem_3686,
+                getitem_3700,
+                getitem_3687,
+                getitem_3701,
+                getitem_3688,
+                linear_314,
+                layer_norm_120,
+                layer_norm_128,
+                layer_norm_124,
+                layer_norm_117,
+                layer_norm_111,
+                layer_norm_109,
+                layer_norm_116,
+                layer_norm_132,
+                layer_norm_126,
+                layer_norm_127,
+                layer_norm_107,
+                layer_norm_113,
+                layer_norm_110,
+                layer_norm_133,
+                layer_norm_118,
+                layer_norm_112,
+                layer_norm_131,
+                layer_norm_122,
+                layer_norm_125,
+                layer_norm_121,
+                layer_norm_119,
+                layer_norm_130,
+                layer_norm_108,
+                layer_norm_129,
+                layer_norm_106,
+                layer_norm_114,
+                layer_norm_134,
+                layer_norm_123,
+                layer_norm_115,
+                reshape,
+            ),
+            dim=1,
+        )
+        getitem_3708 = getitem_3683 = getitem_3707 = getitem_3691 = getitem_3706 = (
+            getitem_3690
+        ) = getitem_3705 = getitem_3684 = getitem_3696 = getitem_3695 = getitem_3704 = (
+            getitem_3685
+        ) = getitem_3697 = getitem_3694 = getitem_3698 = getitem_3693 = getitem_3703 = (
+            getitem_3692
+        ) = getitem_3699 = getitem_3689 = getitem_3702 = getitem_3686 = getitem_3700 = (
+            getitem_3687
+        ) = getitem_3701 = getitem_3688 = linear_314 = layer_norm_120 = (
+            layer_norm_128
+        ) = layer_norm_124 = layer_norm_117 = layer_norm_111 = layer_norm_109 = (
+            layer_norm_116
+        ) = layer_norm_132 = layer_norm_126 = layer_norm_127 = layer_norm_107 = (
+            layer_norm_113
+        ) = layer_norm_110 = layer_norm_133 = layer_norm_118 = layer_norm_112 = (
+            layer_norm_131
+        ) = layer_norm_122 = layer_norm_125 = layer_norm_121 = layer_norm_119 = (
+            layer_norm_130
+        ) = layer_norm_108 = layer_norm_129 = layer_norm_106 = layer_norm_114 = (
+            layer_norm_134
+        ) = layer_norm_123 = layer_norm_115 = reshape = None
+        reshape_655 = torch.reshape(
+            input=cat_25,
+            shape=[-1, 1219, 160],
+        )
+        cat_25 = None
+        permute_74 = reshape_655.permute([0, 2, 1])
+        contiguous_21 = contiguous_wrapper(permute_74,sys._getframe().f_lineno)#.contiguous()
+        _holder__attr_230 = self._attr_230
+        _holder__attr_231 = self._attr_231
+        linear_315 = linear_wrapper(line_number=sys._getframe().f_lineno,
+            input=contiguous_21, weight=_holder__attr_230, bias=_holder__attr_231
+        )
+        
         contiguous_21 = _holder__attr_230 = _holder__attr_231 = None
         getitem_4149 = linear_315[:, :, 0:232]
         getitem_4150 = linear_315[:, :, 232:296]
