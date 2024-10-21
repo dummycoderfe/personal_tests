@@ -6,7 +6,8 @@ from apex.normalization import FusedLayerNorm
 import parse_trace
 import sys
 import ck_cmd
-run_ck = False
+
+run_ck = False if len(sys.argv) <= 1 else bool(sys.argv[1])
 class LayerNormModel(nn.Module):
     def __init__(self, num_features):
         super(LayerNormModel, self).__init__()
@@ -33,8 +34,10 @@ def run_fw(shape):
     input_tensor = torch.randn(*input_shape, device="cuda").to(torch.bfloat16)
     input_tensor2 = torch.randn(*input_shape, device="cuda").to(torch.bfloat16)
     def run():
+        cache_flush1 = torch.randn(10000, 10000, requires_grad=True, device="cuda", dtype=torch.float32).to(torch.int32)
         v1 = model(input_tensor)
-        v2 = model2(input_tensor)
+        cache_flush2 = torch.randn(10000, 10000, requires_grad=True, device="cuda", dtype=torch.float32).to(torch.int32)
+        v2 = model2(input_tensor2)
         return v1 + v2
 
     #warmup
@@ -43,7 +46,7 @@ def run_fw(shape):
 
     torch.cuda.synchronize()
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        for _ in range(30):
+        for _ in range(100):
             run()
         torch.cuda.synchronize()
     prof.export_chrome_trace("trace_temp.json")

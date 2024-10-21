@@ -6,7 +6,7 @@ from apex.normalization import FusedLayerNorm
 import parse_trace
 import sys
 import ck_cmd
-run_ck = False
+run_ck = False if len(sys.argv) <= 1 else bool(sys.argv[1])
 class LayerNormModel(nn.Module):
     def __init__(self, num_features):
         super(LayerNormModel, self).__init__()
@@ -25,7 +25,7 @@ class LayerNormModelApex(nn.Module):
 
 def run_bw(shape):
     input_shape, _, norm_shape,_,_ = shape
-    v = ['' for _ in range(6)]
+    v = ['' for _ in range(8)]
     v[0] = 'x'.join([str(v) for v in input_shape])
     v[1] = 'x'.join([str(v) for v in norm_shape])
     model = LayerNormModel(norm_shape).cuda().to(torch.bfloat16)
@@ -33,9 +33,12 @@ def run_bw(shape):
     input_tensor = torch.randn(*input_shape, requires_grad=True, device="cuda").to(torch.bfloat16)
     input_tensor1 = torch.randn(*input_shape, requires_grad=True, device="cuda").to(torch.bfloat16)
     def run():
+        cache_flush1 = torch.randn(10000, 10000, requires_grad=True, device="cuda", dtype=torch.float32).to(torch.int32)
         output = model(input_tensor)
+        cache_flush2 = torch.randn(10000, 10000, requires_grad=True, device="cuda", dtype=torch.float32).to(torch.int32)
         output2 = model2(input_tensor1)
         loss = output.max()  + output2.max()
+        cache_flush3 = torch.randn(10000, 10000, requires_grad=True, device="cuda", dtype=torch.float32).to(torch.int32)
         loss.backward() 
 
 
@@ -45,7 +48,7 @@ def run_bw(shape):
 
     torch.cuda.synchronize()
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        for _ in range(30):
+        for _ in range(100):
             run()
         torch.cuda.synchronize()
     prof.export_chrome_trace("trace_temp.json")
@@ -58,6 +61,9 @@ def run_bw(shape):
     if run_ck:
         ck_dgrad = ck_cmd.run('layernorm_bwd_data', s_mul / norm_mul, norm_mul)
         ck_wgrad = ck_cmd.run('layernorm_bwd_gamma_beta', s_mul / norm_mul, norm_mul)
+    else:
+        ck_dgrad = 0
+        ck_wgrad = 0
     torch_wgrad = parse_trace.parse_trace_json(
          "trace_temp.json", 
          "void at::native::(anonymous namespace)::cuComputePartGradGammaBeta") + \
@@ -77,10 +83,12 @@ def run_bw(shape):
          "trace_temp.json", 
          "void cuComputeGradInput<")
     
-    v[2] = apex_dgrad
-    v[3] = torch_dgrad
-    v[4] = apex_wgrad
-    v[5] = torch_wgrad
+    v[2] = ck_dgrad
+    v[3] = apex_dgrad
+    v[4] = torch_dgrad
+    v[5] = ck_wgrad
+    v[6] = apex_wgrad
+    v[7] = torch_wgrad
     print(','.join([str(i) for i in v]))
 shapes = (
 [[2048, 130, 128],[], [128], [],[]], 
@@ -150,7 +158,7 @@ shapes = (
 
 )
 
-print("shape, norm_shape, apex_dgrad, torch_dgrad, apex_wgrad, torch_wgrad")
+print("shape, norm_shape, ck_dgrad, apex_dgrad, torch_dgrad, ck_wgrad, apex_wgrad, torch_wgrad")
 for s in shapes:
      run_bw(s)
 

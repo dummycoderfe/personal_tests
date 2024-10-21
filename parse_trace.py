@@ -18,4 +18,5 @@ def parse_trace_json(trace_file, search_str, search_str_or = "nothing couldbeNon
         average_dur = sum(durations) / len(durations)
     else:
         average_dur = 0
+        raise ValueError("kernel not found")
     return average_dur
